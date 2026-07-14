@@ -1,0 +1,90 @@
+UVProTermBT — Session Log
+=========================
+
+2026-07-13 — Phase 0/1 (project pivot from AXTermPuter, scaffold + KISS codec)
+- New sibling project to AXTermPuter (~/Dev/Projects/AxTermPuter). Same
+  feature scope (APRS messenger + AX.25 terminal for the UV-Pro), but as a
+  Python desktop/laptop app instead of Cardputer firmware, because the
+  AXTermPuter investigation this session confirmed the UV-Pro's real
+  KISS/TNC data path is classic Bluetooth RFCOMM, which the Cardputer's
+  ESP32-S3 (BLE-only radio) cannot reach at all. Full findings carried
+  over into this repo's docs/PROTOCOL.md §2. Laptops/tablets (Chuwi
+  MiniBook, HiMax10, both Kubuntu) have real classic-BT radios, so this
+  project can talk to the radio's actual transport directly.
+- Created CLAUDE.md, ROADMAP.md, docs/PROTOCOL.md, LOG.txt.
+- Decisions: Python 3.12+; classic BT via stdlib
+  `socket.AF_BLUETOOTH`/`BTPROTO_RFCOMM` (no extra dependency, Linux-
+  native); urwid for the terminal UI; pytest for tests; PyInstaller +
+  GitHub Actions for Linux (primary) and Windows (stretch) executable
+  releases. All daily-use devices are Kubuntu — don't let Windows
+  compatibility block Linux progress.
+- Added uvprotermbt/kiss.py: direct port of AXTermPuter's native-tested
+  lib/kiss/kiss_codec.{h,cpp} — encode_frame() and streaming KissDecoder
+  with the same design decisions (empty-frame skip, malformed-escape
+  resync).
+- Added tests/test_kiss.py: ported the same 8 cases from AXTermPuter's
+  test/test_kiss/test_kiss_codec.cpp (encode escaping, single/multi-frame
+  decode, empty-frame skip, fragmentation at every split point, malformed-
+  escape resync, 300-byte payload, deterministic fixed-seed fuzz test).
+- VERIFIED: `pytest tests/` PASSED (8/8), via a local .venv.
+- NOT done: git push to github.com/chengmania/UVProTermBT (repo has no
+  commits yet).
+- NEXT: Phase 2 — RfcommKissLink (classic BT RFCOMM connect from Linux,
+  background RX thread + queue, reconnect logic), confirm the SDP-
+  advertised RFCOMM channel from this machine directly (channel 1 worked
+  for one Android app, channel 4 for another — need our own first-hand
+  confirmation, not just inferred from phone captures), then a HARDWARE
+  TEST decoding real live KISS/AX.25 frames from the UV-Pro.
+
+2026-07-13 — Phase 2 (RFCOMM link) — implemented, channel corrected, still flaky live
+- Added uvprotermbt/link.py: RfcommKissLink (socket.AF_BLUETOOTH/
+  BTPROTO_RFCOMM), background RX thread + queue, send()/on_receive()/
+  poll(), reconnect with backoff. Added scripts/monitor.py as a Phase-2
+  hardware smoke test (connect, print raw + KISS-decoded frames).
+- Confirmed via `sdptool records <addr>` (not `browse`, which comes back
+  empty) from this machine directly: SDP shows RFCOMM channels 2 ("BS
+  AOC"), 3 (Voice Gateway/HFP), 4 ("SPP Dev"/Serial Port 0x1101).
+  Initially targeted channel 4 as the "proper" SDP-discoverable choice.
+- CORRECTION: found the khusmann/benlink project on GitHub — a Python
+  library specifically reverse-engineering this exact radio family
+  (Benshi: BTech UV-Pro, RadioOddity GA-5WB, Vero VR-N76/N7500, BTech
+  GMRS-Pro). It documents the real BLE control service
+  (00001100-d102-11e1-9b23-00025b00a5a5 — not the 00000001-ba2a-... one
+  we'd found, which is itself a red herring) and a GaiaFrame/Message
+  command protocol. Its own RFCOMM example uses channel 1, not 4.
+  Cross-checked against our earlier captured bytes: channel 4 traffic
+  ends in `...ff 01 00` (a GaiaFrame header), channel 1 traffic starts
+  with `c0 00` (raw KISS FEND + command byte, no envelope). Conclusion:
+  channel 4 is a red herring (generic serial profile, not the real TNC
+  path); channel 1 carries genuine raw KISS pass-through. Changed
+  RfcommKissLink.DEFAULT_CHANNEL from 4 to 1. Full writeup in
+  docs/PROTOCOL.md §2. Decided NOT to adopt benlink's Message/GaiaFrame
+  protocol for our core KISS data path — our own kiss.py + RfcommKissLink
+  on channel 1 is simpler and sufficient; benlink stays a good reference
+  for future radio-control features (battery, channel switching).
+- VERIFIED live from Linux (twice): a bare RFCOMM connect to channel 1
+  succeeds cleanly after a fresh `bluetoothctl pair`. Neither test window
+  happened to have live RF traffic, so we haven't yet decoded a real
+  AX.25 frame end-to-end through this project — transport-level
+  connection is confirmed, full data-path confirmation is still pending.
+- NOT resolved: classic BT connection reliability. Spent a large amount
+  of this session on live hardware debugging — saw clean connects,
+  TimeoutError, ConnectionRefusedError, and BlueZ-level
+  br-connection-refused (that last one specifically from an asymmetric
+  bond: our side had removed its copy of the link key while the radio
+  still remembered pairing with us — symmetric removal on both sides
+  fixed that particular case). The radio's own "paired device" indicator
+  was observed appearing and disappearing within a few seconds,
+  independent of anything we did. A full power cycle (battery pull)
+  restored BLE connectivity once when it had gone flaky. Holding a BLE
+  connection open at the same time does NOT stabilize classic RFCOMM —
+  confirmed independent. No access to the radio's own firmware logs, so
+  further root-causing from software has hit its limit for tonight.
+- NEXT: get a genuine live end-to-end KISS/AX.25 decode through
+  RfcommKissLink on channel 1 (needs to coincide with actual RF traffic
+  during a working connection window). If classic-BT flakiness keeps
+  blocking progress, consider a dedicated session focused purely on
+  characterizing the radio's connection-window timing before continuing
+  with Phase 3 (AX.25 parsing) against real traffic — though Phase 3's
+  parsing logic itself doesn't require live hardware and could proceed
+  independently using known-good captured byte sequences as test fixtures.
