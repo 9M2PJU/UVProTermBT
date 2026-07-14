@@ -3,6 +3,15 @@
 decoded KISS frames as they arrive. Not part of the app proper.
 
 Usage: python3 scripts/monitor.py AA:BB:CC:DD:EE:FF [channel]
+
+Before running, pair the radio (see docs/PROTOCOL.md §2 for why `trust`
+matters and the `hfp-hf` BlueZ fix this depends on):
+    bluetoothctl
+    scan on
+    # note MAC, then:
+    pair <MAC>
+    trust <MAC>
+    quit
 """
 
 from __future__ import annotations

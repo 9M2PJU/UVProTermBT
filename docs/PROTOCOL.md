@@ -135,6 +135,64 @@ investigation and the whole reason this project exists on this platform:
   connection flakiness further if it keeps blocking progress — possibly
   worth a dedicated session with more patience/time than fits in a single
   sitting, given how unpredictable the timing has been.
+- **RESOLVED (2026-07-13, later session): root cause of the connection
+  flakiness above.** `journalctl -u bluetooth` showed repeated
+  `bluetoothd[...]: src/profile.c:ext_connect() Hands-Free unit failed
+  connect to <radio MAC>: Connection refused (111)` throughout every
+  flaky session. The UV-Pro advertises a Handsfree Audio Gateway service
+  (SDP `Voice Gateway`/`0x111f`, channel 3 — see the SDP table above) and
+  BlueZ's `hfp-hf` (Hands-Free unit/client) plugin auto-connects to it,
+  contending with RFCOMM at the BlueZ/kernel level regardless of which
+  client API (raw socket vs `rfcomm bind`) initiates the KISS connection.
+  Confirmed independently by two real-world writeups covering this exact
+  radio family: a HamRadioTech article (DC6AP, Sep 2025, "VR-N76 (UV-PRO)
+  with KISS-TNC under Linux") and the `islandmagic/kiss-tnc-test`
+  Raspberry Pi guide — both require disabling the headset/hands-free
+  profile as a prerequisite. Their instructions
+  (`/etc/bluetooth/input.conf`, `Disable=Headset`) are stale for BlueZ
+  5.72 (no such option in that file in this version, confirmed by
+  reading it); the working modern equivalent is a systemd drop-in:
+  `/etc/systemd/system/bluetooth.service.d/override.conf`:
+  ```ini
+  [Service]
+  ExecStart=
+  ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=hfp-hf
+  ```
+  followed by `sudo systemctl daemon-reload && sudo systemctl restart
+  bluetooth`. Only `hfp-hf` is disabled (not `hfp-ag`/`hsp-hs`/`hsp-ag`)
+  — it's the exact role named in the failing log line; if flakiness
+  somehow persists after re-testing, `hsp-hs` (legacy Headset profile
+  client) is the next candidate.
+- **Pairing procedure addendum:** both external writeups include
+  `bluetoothctl trust <MAC>` after `pair <MAC>`, which this project's
+  earlier pairing steps had not been using. Updated procedure:
+  ```
+  bluetoothctl
+  scan on
+  # note MAC, then:
+  pair <MAC>
+  trust <MAC>
+  quit
+  ```
+- **External references confirming RFCOMM channel 1 independently:**
+  HamRadioTech (DC6AP) and `islandmagic/kiss-tnc-test` both land on
+  channel 1 for this radio family via `rfcomm bind /dev/rfcomm0 <MAC> 1`,
+  matching our own `khusmann/benlink`-cross-checked finding above. Also
+  note: HamRadioTech reports **direwolf's TX path does not work with
+  this radio** (RX-only; cause unknown), recommending TFKISS for TX
+  verification — relevant for later on-air TX testing (Phase 4+), not
+  for this project's current RX-only hardware smoke test.
+- **Architecture decision, raw socket vs `rfcomm bind`:** keeping
+  `RfcommKissLink`'s raw `socket.AF_BLUETOOTH` approach; the flakiness
+  was a BlueZ-stack-level contention issue affecting any client API
+  (both external guides needed the headset-disable fix too, regardless
+  of using `rfcomm bind`), not a deficiency of raw sockets specifically.
+  Switching would add a `sudo`-gated system device node, a `pyserial`
+  dependency, and a duplicate bind/release lifecycle for no proven
+  benefit. Revisit `rfcomm bind` + `pyserial` only if raw sockets remain
+  unreliable after the `hfp-hf` fix across multiple clean re-test
+  attempts (and not explained by an asymmetric bond, a separate known
+  issue above).
 
 ## 3. AX.25 Essentials
 

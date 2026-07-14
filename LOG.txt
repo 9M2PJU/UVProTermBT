@@ -88,3 +88,70 @@ UVProTermBT — Session Log
   with Phase 3 (AX.25 parsing) against real traffic — though Phase 3's
   parsing logic itself doesn't require live hardware and could proceed
   independently using known-good captured byte sequences as test fixtures.
+
+2026-07-13 — Phase 2 (RFCOMM link) — root cause found and fixed
+- User found two independent real-world writeups documenting a working
+  classic-BT KISS-TNC setup for this exact radio family (VR-N76/BTech
+  UV-Pro) on Linux: a HamRadioTech article (DC6AP, Sep 2025, "VR-N76
+  (UV-PRO) with KISS-TNC under Linux") and the
+  islandmagic/kiss-tnc-test Raspberry Pi guide. Both independently
+  confirm RFCOMM channel 1 (matching our own khusmann/benlink-informed
+  finding), and both call out disabling BlueZ's Bluetooth headset/
+  Hands-Free profile as a required fix we'd never tried.
+- Confirmed the root cause directly on this machine via
+  `journalctl -u bluetooth`: repeated, exactly-timed log lines
+  throughout every flaky session tonight —
+  `bluetoothd[1256]: src/profile.c:ext_connect() Hands-Free unit failed
+  connect to 38:D2:00:01:38:8F: Connection refused (111)`. BlueZ's
+  `hfp-hf` (Hands-Free unit/client role) plugin auto-connects to the
+  radio's advertised Handsfree Audio Gateway service (SDP `Voice
+  Gateway`/0x111f, channel 3), contending with our RFCOMM channel-1 KISS
+  connection attempts at the BlueZ/kernel level, regardless of which
+  client API initiates the connection.
+- The two articles' own fix (`/etc/bluetooth/input.conf`,
+  `Disable=Headset`) is stale for this system's BlueZ 5.72 — confirmed
+  that option doesn't exist in this version's input.conf (HID-only).
+  Found the modern equivalent: `bluetoothd --help` documents
+  `-P/--noplugin=NAME`; `strings /usr/libexec/bluetooth/bluetoothd`
+  confirmed compiled-in plugin names `hfp-hf`/`hfp-ag`/`hsp-hs`/`hsp-ag`.
+- APPLIED (user-confirmed, system-wide change): created
+  `/etc/systemd/system/bluetooth.service.d/override.conf` disabling only
+  `hfp-hf` (the exact role in the failing log line):
+  ```ini
+  [Service]
+  ExecStart=
+  ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=hfp-hf
+  ```
+  Applied via `sudo systemctl daemon-reload && sudo systemctl restart
+  bluetooth`; verified new bluetoothd process running with the flag.
+  A2DP (music/audio playback) endpoints still register normally —
+  unaffected. Rollback: remove the override.conf, daemon-reload, restart.
+- Updated pairing procedure to include `trust <MAC>` after `pair <MAC>`
+  (both external articles use it, we never had) — documented in
+  docs/PROTOCOL.md §2 and scripts/monitor.py's docstring.
+- Architecture decision: keep RfcommKissLink's raw
+  socket.AF_BLUETOOTH approach rather than switching to `rfcomm bind` +
+  pyserial (which both external guides use) — the root cause was at the
+  BlueZ/kernel level below either client API, so their reliability is
+  attributable to the headset fix, not to `rfcomm bind` itself. No
+  proven benefit to switching; would add a sudo-gated system device
+  node, a new pyserial dependency, and a duplicate reconnect lifecycle.
+  Documented as a fallback option if raw sockets are still unreliable
+  after this fix.
+- Polished uvprotermbt/link.py: differentiated ConnectionRefusedError/
+  TimeoutError/generic OSError in _run()'s logging for actionable
+  diagnostics (still same backoff behavior, no control-flow change);
+  added a threading.Lock around _sock/_connected mutation in send()/
+  _handle_disconnect() (defensive cleanup for a previously-benign race
+  between the main thread's send() and the RX thread's own disconnect
+  handling); send() failures are now logged instead of silent.
+- VERIFIED: `pytest tests/` still 8/8 passing after the link.py changes.
+- Documented direwolf's TX limitation with this radio (HamRadioTech:
+  direwolf RX works, TX silently fails, cause unknown; recommends
+  TFKISS) — noted for later Phase 4+ on-air TX testing, not installing
+  new software this session since our current hardware test is RX-only.
+- NEXT: live hardware re-test with the fix in place — re-pair with
+  `remove` + `trust`, run scripts/monitor.py, confirm a connection that
+  stays up (not flapping), and catch a real live KISS/AX.25 decode
+  during actual RF traffic to finally close out the Phase 2 hardware
+  test.

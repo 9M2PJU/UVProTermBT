@@ -26,12 +26,16 @@
       targeted) via the `khusmann/benlink` reference project + our own
       byte-level analysis of captured traffic. See docs/PROTOCOL.md §2.
 - [x] Connected live to channel 1 from Linux (confirmed twice)
+- [x] Root-caused classic-BT connection flakiness to BlueZ's `hfp-hf`
+      Hands-Free-unit auto-connect contending with RFCOMM (confirmed via
+      `journalctl -u bluetooth`, cross-referenced against two independent
+      real-world writeups for this radio family); fixed via systemd
+      drop-in `--noplugin=hfp-hf`. See docs/PROTOCOL.md §2.
 - [ ] BT status surfaced in the UI (no UI yet — Phase 6/7)
 - [ ] HARDWARE TEST: decode a real live KISS/AX.25 frame end-to-end
       through `RfcommKissLink` — transport connects, but we haven't yet
-      caught it during live RF traffic. Classic-BT connection has been
-      flaky to reproduce on demand this session; see docs/PROTOCOL.md §2
-      "known issue" note.
+      caught it during live RF traffic. Root cause of prior flakiness
+      found and fixed (see above); re-test pending.
 
 ## Phase 3 — AX.25 UI Frames + APRS RX
 - [ ] AX.25 address encode/decode (callsign-SSID, digi path, H-bits)

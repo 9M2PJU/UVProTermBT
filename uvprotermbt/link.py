@@ -40,6 +40,7 @@ class RfcommKissLink:
         self._on_receive: Optional[ReceiveCallback] = None
         self._thread: Optional[threading.Thread] = None
         self._backoff_s = _INITIAL_BACKOFF_S
+        self._sock_lock = threading.Lock()
 
     def begin(self) -> None:
         if self._thread is not None:
@@ -64,12 +65,15 @@ class RfcommKissLink:
         return self._connected.is_set()
 
     def send(self, data: bytes) -> None:
-        sock = self._sock
-        if not self.is_connected() or sock is None:
+        with self._sock_lock:
+            sock = self._sock
+            connected = self.is_connected()
+        if not connected or sock is None:
             return
         try:
             sock.sendall(data)
-        except OSError:
+        except OSError as e:
+            print(f"[link] send failed: {type(e).__name__}: {e}")
             self._handle_disconnect()
 
     def on_receive(self, callback: ReceiveCallback) -> None:
@@ -91,6 +95,11 @@ class RfcommKissLink:
         while not self._stop.is_set():
             try:
                 self._connect_and_read()
+            except ConnectionRefusedError as e:
+                print(f"[link] connection refused (check bluetoothd headset-profile "
+                      f"contention / bonding state): {e}")
+            except TimeoutError as e:
+                print(f"[link] connect timed out after {_CONNECT_TIMEOUT_S}s: {e}")
             except OSError as e:
                 print(f"[link] connect error: {type(e).__name__}: {e}")
             self._handle_disconnect()
@@ -114,9 +123,10 @@ class RfcommKissLink:
             self._rx_queue.put(data)
 
     def _handle_disconnect(self) -> None:
-        self._connected.clear()
-        sock = self._sock
-        self._sock = None
+        with self._sock_lock:
+            self._connected.clear()
+            sock = self._sock
+            self._sock = None
         if sock is not None:
             try:
                 sock.close()
