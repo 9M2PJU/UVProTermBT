@@ -329,3 +329,15 @@ UVProTermBT — Session Log
 - NEXT: **on-air test** — /connect the real ChengmaniaBPQ node (KC3SMW-10)
   over RF and read the BBS. Then Phase 5 polish (k>1 window, T1 tuning for
   1200-baud) and Mic-E lat/lon decode for the APRS monitor.
+
+2026-07-14 — Bugfix: connected-mode connect used the APRS WIDE path
+- Greg hit this connecting our app to ChengmaniaBPQ: EasyTerm connects,
+  ours didn't. Root cause: `_bbs_connect` passed `settings.path_list()`
+  (the APRS path, default WIDE1-1,WIDE2-1) as the SABM's digipeater path.
+  WIDE aliases don't digipeat connected-mode frames, so the SABM never
+  completes its path and BPQ never answers. Verified our SABM is otherwise
+  byte-correct (dest C=1, source C=0, control 0x3F) — identical structure
+  to EasyTerm's working frame.
+- Fix: connected mode goes DIRECT by default; added `/connect NODE via
+  D1,D2` for an explicit real digipeater/node path. Never uses the APRS
+  path. Verified headlessly.

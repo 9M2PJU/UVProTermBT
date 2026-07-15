@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
         self._sys(CHAT, f"UVProTermBT — {settings.mycall}  |  chat target: {self._chat_target}")
         self._sys(MONITOR, "APRS monitor — decoded traffic from the UV-Pro appears here")
-        self._sys(BBS, "BBS terminal — /connect <NODE> to start an AX.25 session (e.g. /connect KC3SMW-10); /bye to disconnect")
+        self._sys(BBS, "BBS terminal — /connect <NODE> (direct) or /connect <NODE> via <D1,D2>; /bye to disconnect")
         self._sys(WINLINK, "Winlink — AX.25 connect works (/connect <RMS>); the B2F/Winlink protocol layer is still TODO")
 
         self._start_link()
@@ -331,7 +331,14 @@ class MainWindow(QMainWindow):
             self._update_target_label()
             self._sys(CHAT, f"chat target set to {self._chat_target}")
         elif cmd == "/connect" and arg:
-            self._bbs_connect(arg.upper())
+            # /connect NODE            (direct)
+            # /connect NODE via A,B    (explicit digipeater path)
+            lowered = [p.lower() for p in parts]
+            via: list[str] = []
+            if "via" in lowered:
+                vi = lowered.index("via")
+                via = [h for h in " ".join(parts[vi + 1:]).replace(" ", "").split(",") if h]
+            self._bbs_connect(arg.upper(), via)
         elif cmd in ("/disconnect", "/bye", "/d"):
             self._bbs_disconnect()
         elif cmd == "/theme":
@@ -341,18 +348,28 @@ class MainWindow(QMainWindow):
 
     # ---- BBS / connected-mode terminal ----------------------------------
 
-    def _bbs_connect(self, node: str) -> None:
+    @staticmethod
+    def _parse_call(spec: str) -> Address:
+        call, _, ssid = spec.partition("-")
+        return Address(call.upper(), int(ssid or 0))
+
+    def _bbs_connect(self, node: str, via: list[str] | None = None) -> None:
         if not self.link.is_connected():
             self._sys(BBS, "not connected to the radio — cannot start a session")
             return
         if self._session is not None:
             self._sys(BBS, f"already in a session with {self._session.remote}; /bye first")
             return
-        call, _, ssid = node.partition("-")
-        remote = Address(call.upper(), int(ssid or 0))
+        remote = self._parse_call(node)
         local = Address(self.settings.callsign, self.settings.ssid)
-        self._session = ax25_conn.Ax25Connection(local, remote, self.settings.path_list())
-        self._sys(BBS, f"connecting to {remote} …")
+        # Connected mode goes DIRECT by default. Do NOT use the APRS path:
+        # WIDE1-1/WIDE2-1 are APRS aliases that don't digipeat connected-mode
+        # frames, so the SABM never completes its path and the node never
+        # answers. Use an explicit `via` path only for real digipeaters/nodes.
+        path = [self._parse_call(h) for h in (via or [])]
+        self._session = ax25_conn.Ax25Connection(local, remote, path)
+        where = f"{remote}" + (f" via {','.join(via)}" if via else " (direct)")
+        self._sys(BBS, f"connecting to {where} …")
         self._handle_conn_result(self._session.connect())
         self._ensure_t1()
 
