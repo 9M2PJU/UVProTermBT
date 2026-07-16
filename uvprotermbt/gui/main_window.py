@@ -272,11 +272,16 @@ class MainWindow(QMainWindow):
                                "but declined. Is it busy, or does it require a login?")
                 self._end_session()
             elif ev == "failed":
-                # No UA/DM after N2 tries: the node isn't hearing us at all.
-                self._sys(BBS, "no response after repeated tries — the node isn't "
-                               "hearing you. Check the UV-Pro is on the BBS frequency, "
-                               "try /connect <NODE> via <digi>, or a different SSID.")
+                # No UA/DM after N2 tries. On this radio the KISS transmit path
+                # can silently wedge under heavy channel traffic (frames stop
+                # going out with no error) and only a fresh RFCOMM connection
+                # clears it — so reset the link automatically instead of making
+                # the user restart the app.
+                self._sys(BBS, "no response after repeated tries — resetting the "
+                               "radio link (the KISS TNC can wedge under heavy "
+                               "traffic). Wait for ● BT, then /connect again.")
                 self._end_session()
+                self.link.reconnect()
             elif ev == "disconnected":
                 self._sys(BBS, "disconnected")
                 self._end_session()

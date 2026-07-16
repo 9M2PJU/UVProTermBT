@@ -467,3 +467,22 @@ UVProTermBT — Session Log
   radio's KISS TX wedges, retries can't help. Worth noting for users: keep
   the UV-Pro's own APRS beacon OFF while using it as a KISS TNC, and prefer a
   quieter frequency for connected-mode/BBS work.
+
+2026-07-15 — Auto-recover a wedged KISS link (no app restart needed)
+- KEY finding from Greg: after the wedge, the radio only starts sending again
+  when he closes and REBOOTS THE PROGRAM — not the radio. UV-Pro's own beacon
+  is off. So the wedge is on OUR side: the RFCOMM link gets stuck (os.write()
+  keeps 'succeeding' but nothing reaches the radio, no error), and only a
+  fresh RFCOMM connection clears it. An app restart re-establishes that
+  connection; nothing else did.
+- Fix: `RfcommKissLink.reconnect()` — forces a fresh RFCOMM connection
+  (close fd + Disconnect/Connect -> new fd via the profile's NewConnection),
+  i.e. what an app restart does, but in-place. The GUI now calls it on a
+  session stall ("failed" event) so the wedge clears automatically; the user
+  just waits for ● BT and /connect again — no restart.
+- Verified headlessly (stall -> link.reconnect() invoked once, session
+  cleared, message shown). Suite 36/36.
+- CAVEAT: diagnosed from Greg's description, not direct observation of the
+  wedge. If reconnect() alone doesn't clear it on hardware, the stronger
+  version is to unregister+re-register the BlueZ profile (or bounce the whole
+  link thread) — closer to a full restart. Needs on-air confirmation.
