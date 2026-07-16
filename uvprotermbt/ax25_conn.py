@@ -147,6 +147,16 @@ class Ax25Connection:
         self._last_cmd: bytes | None = None       # for retransmit (SABM/DISC/I)
         self.retries = 0
 
+    @property
+    def awaiting_response(self) -> bool:
+        """True when the acknowledgment timer T1 should be running: we're
+        mid-handshake, or we have an unacked I frame outstanding. The caller
+        arms/cancels its T1 from this after every event, so T1 is (re)started
+        per transmission and stopped on ack (AX.25 §6.7.1.1) — never left
+        free-running (which prematurely retransmits)."""
+        return (self.state in (State.CONNECTING, State.DISCONNECTING)
+                or self._outstanding is not None)
+
     # -- local actions --
 
     def connect(self) -> Result:

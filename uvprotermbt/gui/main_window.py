@@ -279,6 +279,7 @@ class MainWindow(QMainWindow):
             elif ev == "disconnected":
                 self._sys(BBS, "disconnected")
                 self._end_session()
+        self._arm_t1()  # (re)start or cancel T1 based on whether we await a reply
 
     def _end_session(self) -> None:
         self._session = None
@@ -392,8 +393,8 @@ class MainWindow(QMainWindow):
         self._session = ax25_conn.Ax25Connection(local, remote, path)
         where = f"{remote}" + (f" via {','.join(via)}" if via else " (direct)")
         self._sys(BBS, f"connecting to {where} …")
+        self._ensure_t1()  # create the timer before the result handler arms it
         self._handle_conn_result(self._session.connect())
-        self._ensure_t1()
 
     def _bbs_disconnect(self) -> None:
         if self._session is None:
@@ -419,8 +420,20 @@ class MainWindow(QMainWindow):
     def _ensure_t1(self) -> None:
         if self._t1 is None:
             self._t1 = QTimer(self)
+            self._t1.setSingleShot(True)  # (re)armed per transmission, not free-running
             self._t1.timeout.connect(self._on_t1)
-        self._t1.start(3000)  # T1 — AX.25 2.2 §6.7.1.1 default
+
+    def _arm_t1(self) -> None:
+        """Start T1 (single-shot) while we're awaiting a response, else stop it.
+        Called after every connection event so T1 restarts on each transmission
+        and is cancelled the moment an ack arrives — never left free-running
+        (which retransmits prematurely and duplicates frames)."""
+        if self._t1 is None:
+            return
+        if self._session is not None and self._session.awaiting_response:
+            self._t1.start(3000)  # T1 — AX.25 2.2 §6.7.1.1 default
+        else:
+            self._t1.stop()
 
     def _on_t1(self) -> None:
         if self._session is not None:

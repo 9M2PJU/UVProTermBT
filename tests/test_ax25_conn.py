@@ -3,6 +3,7 @@ from uvprotermbt.ax25_conn import (
     Ax25Connection,
     Control,
     FrameKind,
+    Result,
     State,
     build_frame,
     decode_control,
@@ -214,6 +215,22 @@ def test_burst_defers_ack_until_polled():
     assert len(sent) == 1                       # only the poll got an ack
     ctrl = decode_control(decode_frame(sent[0]).control)
     assert ctrl.kind is FrameKind.RR and ctrl.nr == 3 and ctrl.pf is True
+
+
+def test_awaiting_response_drives_t1():
+    # The GUI arms/cancels its T1 from this; it must be True only while a reply
+    # is pending, so T1 is per-frame (never free-running -> no dup transmits).
+    a = Ax25Connection(X, Y)
+    assert a.awaiting_response is False          # disconnected
+    a.connect()
+    assert a.awaiting_response is True           # awaiting UA
+    a.state = State.CONNECTED
+    a._outstanding = None
+    assert a.awaiting_response is False          # connected, idle
+    a.send(b"cmd")
+    assert a.awaiting_response is True           # unacked I frame
+    a._apply_ack(a.vs, Result())                 # peer acks it
+    assert a.awaiting_response is False           # acked -> T1 cancelled
 
 
 def test_responds_to_supervisory_poll():
