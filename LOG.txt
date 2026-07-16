@@ -416,3 +416,14 @@ UVProTermBT — Session Log
   burst + poll end-to-end through the GUI headless: all lines delivered, one
   ack, poll answered.
 - NEXT (Greg): pull the branch and retry `lm` / longer BBS output on the air.
+
+2026-07-15 — Bugfix: pass slash-commands through to the BBS in a session
+- BBS sending works (Greg composed a message to NY3J). But the BBS ends a
+  message with "/ex", and our app ate it as a local slash-command ("unknown
+  command: /ex") — leaving him unable to close the message.
+- Fix (gui/main_window._send): while a terminal session is active, only our
+  session-control commands (/bye, /disconnect, /d, /theme) are local;
+  anything else starting with "/" (e.g. /ex) is sent to the remote as data.
+  When idle, all "/" input is local as before (/connect, /to, /theme).
+- Verified headlessly: /ex -> "/ex\r" to the BBS, normal text sends, /bye
+  still disconnects locally, /connect still works when idle. Suite 35/35.

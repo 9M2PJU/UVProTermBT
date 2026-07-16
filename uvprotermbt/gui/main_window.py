@@ -316,15 +316,23 @@ class MainWindow(QMainWindow):
         if self._tx_frame(aprs.encode_ack(src, to_call, msg_id, self.settings.path_list())):
             self._sys(CHAT, f"acked {to_call} message {msg_id}")
 
+    # Commands that stay local even inside a live terminal session. Anything
+    # else starting with "/" (e.g. a BBS's "/ex" to end a message) is sent to
+    # the remote instead of being treated as one of our commands.
+    _SESSION_LOCAL_CMDS = ("/bye", "/disconnect", "/d", "/theme")
+
     def _send(self) -> None:
         text = self._input.text().strip()
         self._input.clear()
         if not text:
             return
-        if text.startswith("/"):
-            self._command(text)
-            return
         mode = self._current_mode()
+        in_session = mode in (BBS, WINLINK) and self._session is not None
+        if text.startswith("/"):
+            if not in_session or text.split()[0].lower() in self._SESSION_LOCAL_CMDS:
+                self._command(text)
+                return
+            # else fall through: send the literal text (e.g. /ex) to the BBS
         if mode == CHAT:
             if not self._chat_target.strip():
                 self._sys(CHAT, "no target set — use /to CALL first")
