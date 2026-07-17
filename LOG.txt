@@ -541,3 +541,26 @@ UVProTermBT — Session Log
      singleton the link relies on. Reproduced the failure and confirmed the fix.
 - Relies on the desktop BT agent (KDE bluedevil on the Chuwi) for the
   Just-Works confirmation. Suite 36/36.
+
+2026-07-16 — Phase C: Winlink via PAT (KISS-over-TCP bridge)
+- Greg's question — "can we AGWPE with a KISS TNC over BT rather than a BT
+  serial connection?" — led to a much simpler architecture than the original
+  AGWPE-server idea. Found that pat-gensio (PAT with built-in AX.25) connects
+  to a KISS TNC over TCP directly (gensio `kiss,tcp,localhost,8001`). So we
+  don't implement AGWPE OR do AX.25 for Winlink — PAT does it all; we just
+  re-serve the radio's KISS stream on a local TCP socket.
+- uvprotermbt/kiss_tcp.py: KissTcpServer — a transparent byte pipe on top of
+  the existing BT link. Background accept/read loop forwards PAT→radio via
+  link.send(); the GUI feeds radio→PAT via feed_from_radio() from its RX poll.
+  One client (one radio), thread-safe, no GUI-thread I/O.
+- Winlink tab: Start/Stop Winlink Bridge button + the exact PAT config string
+  (kiss,tcp,127.0.0.1,8001). While bridging, the app relays RX to PAT, still
+  decodes for the monitor, and BLOCKS its own TX (PAT owns the radio). Poll
+  detects PAT connect/disconnect. Stops on close.
+- Chose KISS-over-TCP over AGWPE: ~120 lines vs a full AGWPE protocol + our own
+  AX.25; PAT's mature stack (k>1) handles B2F better than our stop-and-wait.
+- tests/test_kiss_tcp.py (3): both-direction relay, client-disconnect state,
+  no-client no-op. Suite 39/39. GUI flow verified headlessly + rendered.
+  docs/WINLINK_PAT.md: PAT/pat-gensio setup guide.
+- NEXT (Greg, on-air): install pat-gensio, Start Winlink Bridge, point PAT at
+  kiss,tcp,localhost:8001, connect to an RMS, send/receive a Winlink message.

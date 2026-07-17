@@ -90,6 +90,10 @@
       `uvprotermbt/gui/main_window.py`.
 - [x] Light/dark themes (OpenWave's navy/cyan palette + matched light),
       toggle via View menu / Ctrl-T. `uvprotermbt/gui/theme.py`.
+- [x] **Winlink via PAT (KISS-over-TCP bridge)** — the Winlink tab starts a
+      local KISS-TCP server (`uvprotermbt/kiss_tcp.py`) that re-serves the
+      radio's KISS stream; PAT (pat-gensio) does the AX.25 + Winlink B2F. App
+      TX is paused while bridging. `tests/test_kiss_tcp.py`, `docs/WINLINK_PAT.md`.
 - [x] Chat + APRS Monitor wired to the live link; BBS/Winlink screens ready
       for the connected-mode backend.
 - [x] BBS session view wired to Phase 5 connected mode (/connect, stream,

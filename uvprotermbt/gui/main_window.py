@@ -55,6 +55,9 @@ class MainWindow(QMainWindow):
         self._msg_seq = 0
         self._session: ax25_conn.Ax25Connection | None = None  # BBS/terminal
         self._t1 = None
+        self._bridge = None            # KissTcpServer for PAT/Winlink
+        self._bridge_active = False
+        self._bridge_client = False    # last-seen PAT-connected state
         # per-tab message records, so a theme switch can re-render with new colors
         self._records: dict[str, list[tuple]] = {m: [] for m in MODES}
         self._views: dict[str, QTextEdit] = {}
@@ -68,7 +71,9 @@ class MainWindow(QMainWindow):
         self._sys(CHAT, f"UVProTermBT — {settings.mycall}  |  chat target: {self._chat_target}")
         self._sys(MONITOR, "APRS monitor — decoded traffic from the UV-Pro appears here")
         self._sys(BBS, "BBS terminal — /connect <NODE> (direct) or /connect <NODE> via <D1,D2>; /bye to disconnect")
-        self._sys(WINLINK, "Winlink — AX.25 connect works (/connect <RMS>); the B2F/Winlink protocol layer is still TODO")
+        self._sys(WINLINK, "Winlink — click Start Winlink Bridge, then point PAT "
+                           "(pat-gensio) at kiss,tcp,localhost:8001. PAT does the "
+                           "Winlink B2F; this app just bridges the radio.")
 
         if not settings.is_configured():
             self._sys(CHAT, "not configured — set your callsign and radio in "
@@ -148,6 +153,8 @@ class MainWindow(QMainWindow):
             self._views[mode] = view
             if mode == MONITOR:
                 self._tabs.addTab(self._build_monitor_tab(view), mode)
+            elif mode == WINLINK:
+                self._tabs.addTab(self._build_winlink_tab(view), mode)
             else:
                 self._tabs.addTab(view, mode)
         vbox.addWidget(self._tabs, 1)
@@ -170,6 +177,25 @@ class MainWindow(QMainWindow):
         vbox.addWidget(input_bar)
 
         self._update_target_label()
+
+    def _build_winlink_tab(self, view) -> QWidget:
+        """Winlink tab = a bridge toolbar (start/stop the KISS-over-TCP server
+        for PAT) above the log view."""
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
+        bar = QWidget()
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(0, 0, 0, 0)
+        self._bridge_btn = QPushButton("Start Winlink Bridge")
+        self._bridge_btn.clicked.connect(self._toggle_bridge)
+        h.addWidget(self._bridge_btn)
+        self._bridge_info = QLabel("")
+        h.addWidget(self._bridge_info, 1)
+        v.addWidget(bar)
+        v.addWidget(view, 1)
+        return w
 
     def _build_monitor_tab(self, view) -> QWidget:
         """APRS tab = the scrollback view + a heard-stations panel."""
@@ -298,6 +324,8 @@ class MainWindow(QMainWindow):
     # ---- link RX --------------------------------------------------------
 
     def _on_rx_bytes(self, data: bytes) -> None:
+        if self._bridge_active and self._bridge is not None:
+            self._bridge.feed_from_radio(data)  # relay raw KISS to PAT
         for kframe in self._decoder.feed(data):
             try:
                 ax = decode_frame(kframe.payload)
@@ -374,6 +402,10 @@ class MainWindow(QMainWindow):
         return MODES[self._tabs.currentIndex()]
 
     def _tx_frame(self, frame_bytes: bytes) -> bool:
+        if self._bridge_active:
+            self._sys(self._current_mode(), "Winlink bridge is active — PAT is using "
+                      "the radio. Stop the bridge (Winlink tab) to transmit here.")
+            return False
         if not self.settings.is_configured():
             self._sys(self._current_mode(),
                       "set your callsign and radio first (File → Settings). "
@@ -460,6 +492,9 @@ class MainWindow(QMainWindow):
         return Address(call.upper(), int(ssid or 0))
 
     def _bbs_connect(self, node: str, via: list[str] | None = None) -> None:
+        if self._bridge_active:
+            self._sys(BBS, "Winlink bridge is active — stop it (Winlink tab) to use the BBS.")
+            return
         if not self.settings.is_configured():
             self._sys(BBS, "set your callsign and radio first (File → Settings).")
             return
@@ -531,6 +566,58 @@ class MainWindow(QMainWindow):
     def _update_target_label(self) -> None:
         self._target_label.setText(f"chat target: {self._chat_target}")
 
+    # ---- Winlink (KISS-over-TCP bridge for PAT) --------------------------
+
+    def _toggle_bridge(self) -> None:
+        if self._bridge is not None and self._bridge.is_running():
+            self._stop_bridge()
+        else:
+            self._start_bridge()
+
+    def _start_bridge(self) -> None:
+        if not self.settings.is_configured():
+            self._sys(WINLINK, "set your callsign and radio first (File → Settings).")
+            return
+        if not self.link.is_connected():
+            self._sys(WINLINK, "connect the radio first — wait for ● BT.")
+            return
+        if self._bridge is None:
+            from ..kiss_tcp import KissTcpServer
+            self._bridge = KissTcpServer(self.link)
+        try:
+            self._bridge.start()
+        except OSError as e:
+            self._sys(WINLINK, f"couldn't open the bridge port {self._bridge.port}: {e} "
+                               "(is another bridge or program already using it?)")
+            return
+        self._bridge_active = True
+        self._bridge_client = False
+        self._bridge_btn.setText("Stop Winlink Bridge")
+        cfg = f"kiss,tcp,{self._bridge.host},{self._bridge.port}"
+        self._bridge_info.setText(f"PAT: {cfg}")
+        self._sys(WINLINK, f"bridge listening on {self._bridge.host}:{self._bridge.port}. "
+                           f"In PAT (pat-gensio) set the connect gensio to  {cfg}  and "
+                           "connect to your RMS. While the bridge runs, PAT drives the "
+                           "radio and this app's transmit is paused.")
+
+    def _stop_bridge(self) -> None:
+        if self._bridge is not None:
+            self._bridge.stop()
+        self._bridge_active = False
+        self._bridge_client = False
+        self._bridge_btn.setText("Start Winlink Bridge")
+        self._bridge_info.setText("")
+        self._sys(WINLINK, "bridge stopped — this app can transmit again.")
+
+    def _poll_bridge(self) -> None:
+        if not self._bridge_active or self._bridge is None:
+            return
+        now = self._bridge.client_connected()
+        if now != self._bridge_client:
+            self._bridge_client = now
+            self._sys(WINLINK, "PAT connected — driving the radio" if now
+                      else "PAT disconnected")
+
     # ---- link lifecycle / status ----------------------------------------
 
     def _start_link(self) -> None:
@@ -554,6 +641,7 @@ class MainWindow(QMainWindow):
     def _poll(self) -> None:
         self.link.poll()
         self._refresh_bt_label()
+        self._poll_bridge()
 
     def _refresh_bt_label(self) -> None:
         p = self._pal
@@ -624,5 +712,7 @@ class MainWindow(QMainWindow):
             self.settings.save()
         except Exception:
             pass
+        if self._bridge is not None:
+            self._bridge.stop()
         self.link.stop()
         super().closeEvent(event)
