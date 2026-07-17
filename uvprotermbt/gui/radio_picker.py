@@ -30,6 +30,19 @@ class _ScanThread(QThread):
         self.done.emit(devices)
 
 
+class _PairThread(QThread):
+    """Pair (+ trust) a device off the UI thread."""
+    done = pyqtSignal(bool, str)
+
+    def __init__(self, mac: str) -> None:
+        super().__init__()
+        self._mac = mac
+
+    def run(self) -> None:
+        ok, msg = bt.pair(self._mac)
+        self.done.emit(ok, msg)
+
+
 class RadioPicker(QDialog):
     """Returns the chosen MAC via selected_mac() after exec()."""
 
@@ -61,6 +74,7 @@ class RadioPicker(QDialog):
         buttons.rejected.connect(self.reject)
         v.addWidget(buttons)
 
+        self._pair: _PairThread | None = None
         if not bt.available():
             self._status.setText("Bluetooth D-Bus bindings unavailable.")
             self._rescan.setEnabled(False)
@@ -89,9 +103,32 @@ class RadioPicker(QDialog):
 
     def _accept(self) -> None:
         item = self._list.currentItem()
-        if item is not None:
-            self._mac = str(item.data(Qt.ItemDataRole.UserRole))
+        if item is None:
+            return
+        self._mac = str(item.data(Qt.ItemDataRole.UserRole))
+        # If the radio isn't paired yet, pair it now — the KISS link can't
+        # authenticate without a bond. Don't "finish" on an unpaired device.
+        if bt.available() and self._mac and not bt.is_paired(self._mac):
+            self._start_pairing()
+            return
         self.accept()
+
+    def _start_pairing(self) -> None:
+        self._status.setText("Pairing… make sure the radio is in Pairing mode "
+                             "(Settings → Pairing).")
+        self._ok.setEnabled(False)
+        self._rescan.setEnabled(False)
+        self._pair = _PairThread(self._mac)
+        self._pair.done.connect(self._pair_done)
+        self._pair.start()
+
+    def _pair_done(self, ok: bool, msg: str) -> None:
+        self._ok.setEnabled(True)
+        self._rescan.setEnabled(bt.available())
+        if ok:
+            self.accept()
+        else:
+            self._status.setText(f"Pairing failed — {msg}")
 
     def selected_mac(self) -> str:
         return self._mac

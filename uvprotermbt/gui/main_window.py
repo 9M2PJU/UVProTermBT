@@ -534,8 +534,12 @@ class MainWindow(QMainWindow):
     # ---- link lifecycle / status ----------------------------------------
 
     def _start_link(self) -> None:
+        from .. import bt
         if not self.settings.bt_mac.strip():
             self._sys(CHAT, "no radio set — Radio → Select Radio to choose one.")
+        elif bt.available() and not bt.is_paired(self.settings.bt_mac):
+            self._sys(CHAT, f"radio {self.settings.bt_mac} is not paired — "
+                            "Radio → Select Radio to pair it (put it in Pairing mode).")
         elif dbus_available():
             try:
                 self.link.begin()

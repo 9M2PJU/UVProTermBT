@@ -518,3 +518,26 @@ UVProTermBT — Session Log
   (green when connected), refreshed on every connection event and theme change.
 - Verified headlessly (history recall cycles; heard list populates + click
   sets target; badge idle/connecting/connected) and rendered. Suite 36/36.
+
+2026-07-16 — Fresh-tablet fixes: in-app pairing + private D-Bus bus
+- Greg loaded the setup-and-ui build on the Chuwi tablet (a true "not me,
+  fresh machine" test). Install + wizard fine, but the radio didn't connect.
+  Two real program bugs (fix the program, not the machine):
+  1. The radio picker only recorded the MAC — it never PAIRED the tablet to
+     the radio. The KISS link connects via the SerialPort profile, which needs
+     a bond, so an unpaired-but-selected radio never connects. Worked on the
+     dev box only because the UV-Pro was already paired there.
+     FIX: bt.pair()/is_paired() (Device1.Pair + Trusted, friendly errors);
+     RadioPicker pairs an unpaired device on select (off-thread, "put the
+     radio in Pairing mode", success/failure feedback) and won't "finish" on
+     an unpaired device. Labels show paired / "not paired (will pair on
+     select)". main_window warns if it starts with an unpaired MAC.
+  2. bt.py used the shared dbus.SystemBus() singleton. Called from the wizard
+     BEFORE link.py sets up its GLib main loop, that singleton is created
+     without a loop, and link's profile registration then fails with "D-Bus
+     connections must be attached to a main loop" — i.e. the wizard could break
+     the very link it just configured. FIX: bt.py uses PRIVATE bus connections
+     (dbus.SystemBus(private=True), closed after use) so it never pollutes the
+     singleton the link relies on. Reproduced the failure and confirmed the fix.
+- Relies on the desktop BT agent (KDE bluedevil on the Chuwi) for the
+  Just-Works confirmation. Suite 36/36.
