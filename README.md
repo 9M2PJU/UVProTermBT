@@ -25,27 +25,28 @@ Four modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 - A BTech UV-Pro / VGC VR-N76 with **KISS TNC** firmware
 - System BlueZ D-Bus bindings: `python3-dbus`, `python3-gi`
 
-## Install
+## Install & run
 
 ```bash
 git clone https://github.com/chengmania/UVProTermBT
 cd UVProTermBT
-./install.sh          # apt deps + venv (--system-site-packages) + launcher
+./run.sh
 ```
 
-Or manually:
+That's it. **`./run.sh`** installs everything it needs the first time (asks for
+your password once, for `apt`), then launches the app. Every run after that it
+just starts. After the first run there's also a **"UVProTermBT" icon in your
+app menu** you can use instead.
+
+<details><summary>Prefer to do it by hand?</summary>
 
 ```bash
 sudo apt install python3-dbus python3-gi
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -r requirements.txt
-```
-
-## Run
-
-```bash
 .venv/bin/python -m uvprotermbt
 ```
+</details>
 
 First launch runs a **setup wizard**: enter your callsign, then pick your
 radio. On the radio, first **enable KISS TNC** (Settings → General Settings →

@@ -22,6 +22,7 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -r requirements.txt
 
 echo "==> Desktop launcher"
+chmod +x "$here/run.sh"
 apps="$HOME/.local/share/applications"
 mkdir -p "$apps"
 cat > "$apps/uvprotermbt.desktop" <<DESKTOP
@@ -29,7 +30,7 @@ cat > "$apps/uvprotermbt.desktop" <<DESKTOP
 Type=Application
 Name=UVProTermBT
 Comment=AX.25 packet messenger + terminal for the UV-Pro over Bluetooth KISS TNC
-Exec=$here/.venv/bin/python -m uvprotermbt
+Exec=$here/run.sh
 Path=$here
 Icon=$here/uvprotermbt/gui/resources/icon.png
 Terminal=false
@@ -39,7 +40,7 @@ update-desktop-database "$apps" >/dev/null 2>&1 || true
 
 echo
 echo "Done. Launch from your app menu (\"UVProTermBT\"), or run:"
-echo "    .venv/bin/python -m uvprotermbt"
+echo "    ./run.sh"
 echo
 echo "First launch walks you through callsign + radio setup. On the radio,"
 echo "enable KISS TNC (Settings -> General Settings -> KISS TNC) and pair it."
