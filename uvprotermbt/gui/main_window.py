@@ -21,9 +21,11 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QIcon, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QPushButton,
-    QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMenu,
+    QPushButton, QSplitter, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
+
+from .widgets import HistoryLineEdit
 
 ICON_PATH = Path(__file__).resolve().parent / "resources" / "icon.png"
 
@@ -68,6 +70,11 @@ class MainWindow(QMainWindow):
         self._sys(BBS, "BBS terminal — /connect <NODE> (direct) or /connect <NODE> via <D1,D2>; /bye to disconnect")
         self._sys(WINLINK, "Winlink — AX.25 connect works (/connect <RMS>); the B2F/Winlink protocol layer is still TODO")
 
+        if not settings.is_configured():
+            self._sys(CHAT, "not configured — set your callsign and radio in "
+                            "File → Settings (or Radio → Select Radio). "
+                            "Transmit is disabled until then.")
+
         self._start_link()
 
     # ---- UI construction ------------------------------------------------
@@ -84,6 +91,10 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("E&xit", self.close)
         mb.addMenu(file_menu)
+        radio_menu = QMenu("&Radio", self)
+        radio_menu.addAction("&Select Radio…", self._select_radio)
+        radio_menu.addAction("Re&connect Link", self._reconnect_link)
+        mb.addMenu(radio_menu)
         view_menu = QMenu("&View", self)
         act = QAction("Toggle &Theme (dark/light)", self)
         act.setShortcut("Ctrl+T")
@@ -119,18 +130,26 @@ class MainWindow(QMainWindow):
         sb.addWidget(self._sep1)
         self._bt_label = QLabel("○ BT")
         sb.addWidget(self._bt_label)
+        self._sep2 = QLabel("│")
+        sb.addWidget(self._sep2)
+        self._session_label = QLabel("BBS: —")
+        sb.addWidget(self._session_label)
         sb.addStretch()
         self._target_label = QLabel("")
         sb.addWidget(self._target_label)
         vbox.addWidget(self._status_bar)
 
-        # tabs with a chat/log view each
+        # tabs; each has a scrollback view. APRS additionally gets a
+        # heard-stations panel beside it.
         self._tabs = QTabWidget()
         for mode in MODES:
             view = QTextEdit()
             view.setReadOnly(True)
             self._views[mode] = view
-            self._tabs.addTab(view, mode)
+            if mode == MONITOR:
+                self._tabs.addTab(self._build_monitor_tab(view), mode)
+            else:
+                self._tabs.addTab(view, mode)
         vbox.addWidget(self._tabs, 1)
 
         # input bar
@@ -140,7 +159,7 @@ class MainWindow(QMainWindow):
         ib.setSpacing(6)
         self._prefix = QLabel(f"[{self.settings.mycall}]:")
         ib.addWidget(self._prefix)
-        self._input = QLineEdit()
+        self._input = HistoryLineEdit()
         self._input.setPlaceholderText(
             "Type a message and press Enter…   (/to CALL, /connect NODE, /theme)")
         self._input.returnPressed.connect(self._send)
@@ -152,6 +171,51 @@ class MainWindow(QMainWindow):
 
         self._update_target_label()
 
+    def _build_monitor_tab(self, view) -> QWidget:
+        """APRS tab = the scrollback view + a heard-stations panel."""
+        split = QSplitter(Qt.Orientation.Horizontal)
+        split.addWidget(view)
+        self._heard_list = QListWidget()
+        self._heard_list.setToolTip("Heard stations — double-click to set as chat target")
+        self._heard_list.itemDoubleClicked.connect(self._heard_clicked)
+        split.addWidget(self._heard_list)
+        split.setStretchFactor(0, 3)
+        split.setStretchFactor(1, 1)
+        split.setSizes([720, 250])
+        return split
+
+    def _heard_clicked(self, item) -> None:
+        call = item.data(Qt.ItemDataRole.UserRole)
+        if call:
+            self._chat_target = call
+            self._update_target_label()
+            self._tabs.setCurrentIndex(MODES.index(CHAT))
+            self._sys(CHAT, f"chat target set to {call} (from heard list)")
+
+    def _refresh_heard(self) -> None:
+        import time
+        now = time.time()
+        self._heard_list.clear()
+        for h in self._heard.recent()[:100]:
+            age = int(now - h.last)
+            ago = f"{age}s" if age < 60 else f"{age // 60}m"
+            item = QListWidgetItem(f"{h.call}   {h.last_kind.value}   {ago} ×{h.count}")
+            item.setData(Qt.ItemDataRole.UserRole, h.call)
+            self._heard_list.addItem(item)
+
+    def _refresh_session_badge(self) -> None:
+        p = self._pal
+        if self._session is None:
+            self._session_label.setText("BBS: —")
+            color = p.text
+        elif self._session.state is ax25_conn.State.CONNECTED:
+            self._session_label.setText(f"BBS: ● {self._session.remote}")
+            color = p.green
+        else:
+            self._session_label.setText(f"BBS: {self._session.state.value}…")
+            color = p.yellow
+        self._session_label.setStyleSheet(f"color:{color}; font-weight:bold;")
+
     # ---- theme ----------------------------------------------------------
 
     def _apply_theme(self) -> None:
@@ -162,13 +226,18 @@ class MainWindow(QMainWindow):
         self._cs_label.setStyleSheet(
             f"color:{p.accent}; font-weight:bold; font-size:14px;")
         self._sep1.setStyleSheet(f"color:{p.border};")
+        self._sep2.setStyleSheet(f"color:{p.border};")
         self._prefix.setStyleSheet(f"color:{p.accent}; font-weight:bold;")
         self._target_label.setStyleSheet(f"color:{p.text};")
+        self._heard_list.setStyleSheet(
+            f"background:{p.panel}; border:1px solid {p.border};"
+            f"border-radius:4px; color:{p.text};")
         for view in self._views.values():
             view.setStyleSheet(
                 f"background:{p.panel}; border:1px solid {p.border};"
                 f"border-radius:4px; color:{p.text};")
         self._refresh_bt_label()
+        self._refresh_session_badge()
         self._rerender_all()
 
     def _toggle_theme(self) -> None:
@@ -241,6 +310,7 @@ class MainWindow(QMainWindow):
 
     def _route_aprs(self, pkt: aprs.AprsPacket) -> None:
         self._heard.note(pkt)
+        self._refresh_heard()
         self._record(MONITOR, ("mon", _ts(), pkt.source, pkt.kind.value, pkt.summary()))
         if pkt.kind is aprs.Kind.MESSAGE:
             self._rx(CHAT, pkt.source, pkt.text)
@@ -286,6 +356,7 @@ class MainWindow(QMainWindow):
                 self._sys(BBS, "disconnected")
                 self._end_session()
         self._arm_t1()  # (re)start or cancel T1 based on whether we await a reply
+        self._refresh_session_badge()
 
     def _end_session(self) -> None:
         self._session = None
@@ -303,6 +374,11 @@ class MainWindow(QMainWindow):
         return MODES[self._tabs.currentIndex()]
 
     def _tx_frame(self, frame_bytes: bytes) -> bool:
+        if not self.settings.is_configured():
+            self._sys(self._current_mode(),
+                      "set your callsign and radio first (File → Settings). "
+                      "Transmit is disabled until then.")
+            return False
         if not self.link.is_connected():
             self._sys(self._current_mode(), "not connected to the radio — cannot transmit")
             return False
@@ -333,6 +409,7 @@ class MainWindow(QMainWindow):
         self._input.clear()
         if not text:
             return
+        self._input.remember(text)  # Up/Down history recall
         mode = self._current_mode()
         in_session = mode in (BBS, WINLINK) and self._session is not None
         if text.startswith("/"):
@@ -383,6 +460,9 @@ class MainWindow(QMainWindow):
         return Address(call.upper(), int(ssid or 0))
 
     def _bbs_connect(self, node: str, via: list[str] | None = None) -> None:
+        if not self.settings.is_configured():
+            self._sys(BBS, "set your callsign and radio first (File → Settings).")
+            return
         if not self.link.is_connected():
             self._sys(BBS, "not connected to the radio — cannot start a session")
             return
@@ -454,7 +534,13 @@ class MainWindow(QMainWindow):
     # ---- link lifecycle / status ----------------------------------------
 
     def _start_link(self) -> None:
-        if dbus_available():
+        from .. import bt
+        if not self.settings.bt_mac.strip():
+            self._sys(CHAT, "no radio set — Radio → Select Radio to choose one.")
+        elif bt.available() and not bt.is_paired(self.settings.bt_mac):
+            self._sys(CHAT, f"radio {self.settings.bt_mac} is not paired — "
+                            "Radio → Select Radio to pair it (put it in Pairing mode).")
+        elif dbus_available():
             try:
                 self.link.begin()
             except Exception as exc:  # pragma: no cover
@@ -482,6 +568,7 @@ class MainWindow(QMainWindow):
 
     def _open_settings(self) -> None:
         from .settings_dialog import SettingsDialog
+        old_mac = self.settings.bt_mac
         dlg = SettingsDialog(self.settings, parent=self)
         if dlg.exec():
             self.settings.save()
@@ -489,6 +576,40 @@ class MainWindow(QMainWindow):
             self._prefix.setText(f"[{self.settings.mycall}]:")
             self.setWindowTitle(f"UVProTermBT — {self.settings.mycall}")
             self._sys(self._current_mode(), "settings saved")
+            if self.settings.bt_mac != old_mac:
+                self._rebuild_link()
+
+    def _select_radio(self) -> None:
+        from .radio_picker import RadioPicker
+        dlg = RadioPicker(self.settings.bt_mac, parent=self)
+        if dlg.exec() and dlg.selected_mac():
+            self.settings.bt_mac = dlg.selected_mac()
+            self.settings.save()
+            self._sys(self._current_mode(), f"radio set to {self.settings.bt_mac}")
+            self._rebuild_link()
+
+    def _reconnect_link(self) -> None:
+        if not self.settings.bt_mac.strip():
+            self._sys(self._current_mode(), "no radio set — Radio → Select Radio.")
+            return
+        self._sys(self._current_mode(), "reconnecting link…")
+        self._rebuild_link()
+
+    def _rebuild_link(self) -> None:
+        """Tear down the link and start a fresh one for the current MAC — used
+        after the radio changes or on a manual Reconnect."""
+        try:
+            self.link.stop()
+        except Exception:
+            pass
+        self.link = RfcommKissLink(self.settings.bt_mac)
+        self.link.on_receive(self._on_rx_bytes)
+        if self.settings.bt_mac.strip() and dbus_available():
+            try:
+                self.link.begin()
+                self._sys(self._current_mode(), f"connecting to {self.settings.bt_mac} …")
+            except Exception as exc:  # pragma: no cover
+                self._sys(self._current_mode(), f"link error: {exc}")
 
     def _open_about(self) -> None:
         from PyQt6.QtWidgets import QMessageBox
