@@ -26,22 +26,8 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 
-echo "==> Desktop launcher"
-chmod +x "$here/run.sh"
-apps="$HOME/.local/share/applications"
-mkdir -p "$apps"
-cat > "$apps/uvprotermbt.desktop" <<DESKTOP
-[Desktop Entry]
-Type=Application
-Name=UVProTermBT
-Comment=AX.25 packet messenger + terminal for the UV-Pro over Bluetooth KISS TNC
-Exec=$here/run.sh
-Path=$here
-Icon=$here/uvprotermbt/gui/resources/icon.png
-Terminal=false
-Categories=HamRadio;Network;Utility;
-DESKTOP
-update-desktop-database "$apps" >/dev/null 2>&1 || true
+echo "==> Desktop launcher + icon (app menu + Desktop)"
+"$here/scripts/install-desktop-entry.sh"
 
 echo
 echo "==> Preflight check"

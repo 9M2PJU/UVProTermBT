@@ -1,6 +1,16 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-17 — Desktop launcher icon (app menu + Desktop)
+- Greg wanted a clickable desktop icon. install.sh previously only made an
+  app-menu entry; now it also drops one on the Desktop.
+- scripts/install-desktop-entry.sh (new): writes the .desktop launcher to
+  ~/.local/share/applications AND the (localized, via xdg-user-dir) Desktop dir,
+  chmod 755 + gio metadata::trusted (GNOME) — KDE reads the exec bit. install.sh
+  now calls it; re-runnable standalone. Categories=Network;HamRadio; (validates
+  clean). KDE caveat: first double-click may ask to trust the launcher, and it
+  only shows if the Plasma desktop uses the Folder View layout.
+
 2026-07-17 — Installer robustness: ax25-tools upfront + preflight/doctor check
 - Greg flagged that install.sh didn't check/install the Winlink external deps
   (PAT, ax25-tools) — only the Python/BlueZ deps. Audit confirmed: ax25-tools was
