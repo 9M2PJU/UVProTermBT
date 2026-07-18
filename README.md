@@ -23,7 +23,10 @@ Four modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 
 - Linux with BlueZ (developed on Kubuntu), Python 3.12+
 - A BTech UV-Pro / VGC VR-N76 with **KISS TNC** firmware
-- System BlueZ D-Bus bindings: `python3-dbus`, `python3-gi`
+- System BlueZ D-Bus bindings: `python3-dbus`, `python3-gi` (installed by `install.sh`)
+- **Winlink only:** [PAT](https://getpat.io/) installed separately, plus a
+  PolicyKit agent (KDE/GNOME provide one). `ax25-tools` is installed for you.
+  Run `./run.sh --check` to verify everything Winlink needs is present.
 
 ## Install & run
 

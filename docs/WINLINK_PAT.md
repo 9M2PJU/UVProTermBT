@@ -7,13 +7,20 @@ pty, runs `kissattach` on it to bring up the Linux **kernel AX.25** stack, and
 then [PAT](https://getpat.io/) drives the radio over `ax25+linux`. PAT does all
 the Winlink protocol (AX.25 + B2F); we just bridge the bytes.
 
+## Prerequisites
+
+- **`ax25-tools`** (kissattach) is installed for you by `install.sh`. (If it's
+  ever missing, the Winlink tab offers to install it on demand.)
+- **PAT** is **not** bundled — install it separately from
+  [getpat.io](https://getpat.io/) (Debian/Ubuntu `.deb`) and configure your
+  callsign + Winlink password in PAT. Run `./run.sh --check` any time to see
+  whether PAT, `kissattach`, `pkexec`, and a PolicyKit agent are all present.
+
 ## One-click setup (recommended)
 
 1. Connect the radio in UVProTermBT (wait for **● BT** green).
 2. Go to the **Winlink** tab and click **Start Winlink Bridge**. That one button:
-   - the **first time**, offers to install the Linux AX.25 tools (`ax25-tools`,
-     ~1 MB) — click yes; you'll get a graphical password prompt;
-   - creates a pty and runs `kissattach` for you (one more password prompt);
+   - creates a pty and runs `kissattach` for you (a graphical password prompt);
    - launches **PAT** and shows its web UI **right inside the Winlink tab** —
      compose, read, and connect all happen in the app window.
 3. In PAT's **Connect** dialog (in the embedded view), choose **AX.25 (linux)**

@@ -6,6 +6,11 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$here"
 
+# `./run.sh --check` runs the preflight/doctor report instead of launching.
+if [ "${1:-}" = "--check" ]; then
+    exec "$here/scripts/preflight.sh"
+fi
+
 if [ ! -x ".venv/bin/python" ]; then
     echo "First-time setup — installing dependencies (this happens once)…"
     echo

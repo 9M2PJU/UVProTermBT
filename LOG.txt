@@ -1,6 +1,29 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-17 — Installer robustness: ax25-tools upfront + preflight/doctor check
+- Greg flagged that install.sh didn't check/install the Winlink external deps
+  (PAT, ax25-tools) — only the Python/BlueZ deps. Audit confirmed: ax25-tools was
+  on-demand (pkexec at Start-Bridge), PAT was never installed (just which-checked),
+  polkit agent unverified.
+- install.sh: now installs ax25-tools/ax25-apps/libax25 UPFRONT alongside the
+  BlueZ bindings (Greg's call — Winlink ready without the later prompt). The
+  Winlink tab's on-demand install stays as a fallback.
+- scripts/preflight.sh (new): read-only "doctor" — reports Python/BlueZ deps,
+  PyQt6-WebEngine (mirrors the app's LD_LIBRARY_PATH shim so it reflects the real
+  embed-vs-browser outcome), kissattach, pkexec, PolicyKit agent, and PAT. PAT is
+  detect+guide only (getpat.io) — not auto-installed (third-party Go binary; no
+  silent third-party apt repo). install.sh runs it at the end; also `./run.sh
+  --check`.
+- axports: unchanged and already robust — winlink-helper.sh `attach` syncs exactly
+  one axports line for port wl2k with the current Winlink callsign on every Start
+  Winlink Bridge (idempotent: deletes any stale line, re-adds). That's the right
+  place — it needs the callsign (set in the wizard) and root, and self-corrects if
+  the callsign changes. No separate first-run axports step (would add a setup-time
+  password prompt for no gain).
+- Docs: README requirements + WINLINK_PAT.md prerequisites note PAT is separate,
+  ax25-tools is installed, and point to ./run.sh --check. Suite 52/52 (scripts are
+  shell; bash -n clean).
 2026-07-17 — Fix: crash-spew when closing the window mid-pkexec (tablet)
 - Symptom (HiMax10 tablet): after clicking Winlink, a burst of tracebacks —
   "QProcess: Destroyed while process (pkexec) is still running", then
