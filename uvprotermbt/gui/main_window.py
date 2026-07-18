@@ -828,10 +828,12 @@ class MainWindow(QMainWindow):
 
     def _open_about(self) -> None:
         from PyQt6.QtWidgets import QMessageBox
+
+        from .. import __version__
         QMessageBox.about(
             self, "About UVProTermBT",
-            "UVProTermBT\n\nAX.25 packet messenger + terminal for the BTech "
-            "UV-Pro / VGC VR-N76 over classic Bluetooth (KISS TNC).\n\n"
+            f"UVProTermBT v{__version__}\n\nAX.25 packet messenger + terminal for "
+            "the BTech UV-Pro / VGC VR-N76 over classic Bluetooth (KISS TNC).\n\n"
             "KC3SMW • styled after OpenWave.")
 
     def closeEvent(self, event):  # noqa: N802

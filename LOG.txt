@@ -1,6 +1,13 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-17 — v0.9.0: first tagged public release
+- __version__ = "0.9.0" in uvprotermbt/__init__.py (single source of truth),
+  surfaced in Help → About and via `python -m uvprotermbt --version`.
+- Source release (tag v0.9.0 + GitHub Release, auto source zip/tar). Standalone
+  binaries deferred to the CI/PyInstaller work (Post-v1). All four modes
+  (Chat/APRS/BBS/Winlink) working + on-air proven; GPLv3; one-command install +
+  desktop icon; embedded PAT. Suite 54/54.
 2026-07-17 — Winlink fail-safe: GUI popup when PAT is missing
 - Before: PAT-absent only printed a text line in the Winlink log, AFTER kissattach
   had already run. Now _start_bridge checks shutil.which("pat") right after the

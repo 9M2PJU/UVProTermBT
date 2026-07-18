@@ -98,6 +98,11 @@ def _enable_webengine_gl_sharing() -> None:
 
 
 def main() -> None:
+    if "--version" in sys.argv[1:] or "-V" in sys.argv[1:]:
+        from . import __version__
+        print(f"UVProTermBT {__version__}")
+        return
+
     _ensure_qt_lib_path()  # must run before any Qt import
     _locate_webengine_runtime()  # point WebEngine at its process/resources
     _enable_webengine_gl_sharing()  # must run before any QApplication is created
