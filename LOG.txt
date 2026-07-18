@@ -23,9 +23,23 @@ UVProTermBT — Session Log
 - tests/test_pat_panel.py: qapp fixture now calls the helper before creating the
   app (as main() does) + test_gl_sharing_attribute_enabled asserts the attribute
   took. Suite 51/51.
-- NOTE (possible follow-up): if the embedded pane renders BLANK in a real
-  X/Wayland session (import works but Chromium won't paint), QtWebEngine may need
-  QTWEBENGINE_DISABLE_SANDBOX=1 or GPU flags — not added now (security/scope).
+- FOLLOW-ON crash (Greg): after the embed fix, launching + entering the kissattach
+  password aborted with "could not find Qt WebEngine Process ... Aborted (core
+  dumped)". The embed fix WORKED (WebEngine loaded + tried to render), but the
+  QtWebEngineProcess helper binary wasn't found. Same split-install root cause as
+  the libs: base PyQt6 is in ~/.local but the WebEngine wheel's process binary +
+  resources/locales are in the VENV's PyQt6/Qt6 — Qt looked next to base PyQt6.
+- Fix 2: __main__._locate_webengine_runtime() scans PyQt6.__path__ for the root
+  that actually has Qt6/libexec/QtWebEngineProcess and exports
+  QTWEBENGINEPROCESS_PATH + QTWEBENGINE_RESOURCES_PATH + QTWEBENGINE_LOCALES_PATH
+  (setdefault). Also sets QTWEBENGINE_DISABLE_SANDBOX=1: pip-wheel WebEngine's
+  chrome-sandbox isn't setuid-root and crashes the renderer; the embedded page is
+  local/trusted (PAT on localhost), so this is an acceptable trade-off. Real app
+  already passes QApplication(sys.argv) (WebEngine needs a non-empty argv).
+- Verified: with only LD_LIBRARY_PATH pre-set (as the shim yields), the helpers
+  self-configure the process path + sandbox and a real QWebEngineView renders
+  (loadFinished ok=True, no abort). Did NOT force software GL — headless needs it
+  (no GPU) but the real desktop has one. Suite 52/52.
 
 2026-07-17 — Phase C.3: embed the PAT Winlink web UI in-window
 - Before: the Winlink tab only did the bridge half (kissattach) and told the user

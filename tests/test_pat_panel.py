@@ -119,6 +119,26 @@ class _FakeProc:
         return b""
 
 
+def test_locate_webengine_runtime_sets_env(monkeypatch):
+    """When WebEngine is installed, the entrypoint must point Qt at the
+    QtWebEngineProcess binary (split-install: it lives in a different site-packages
+    root than base PyQt6) or the app aborts 'could not find Qt WebEngine Process'.
+    Also disables the pip-wheel sandbox for the local PAT page."""
+    import importlib.util
+    import os
+
+    from uvprotermbt.__main__ import _locate_webengine_runtime
+
+    for k in ("QTWEBENGINEPROCESS_PATH", "QTWEBENGINE_RESOURCES_PATH",
+              "QTWEBENGINE_LOCALES_PATH", "QTWEBENGINE_DISABLE_SANDBOX"):
+        monkeypatch.delenv(k, raising=False)
+    _locate_webengine_runtime()
+    if importlib.util.find_spec("PyQt6.QtWebEngineWidgets") is not None:
+        proc = os.environ.get("QTWEBENGINEPROCESS_PATH")
+        assert proc and os.path.exists(proc)
+        assert os.environ.get("QTWEBENGINE_DISABLE_SANDBOX") == "1"
+
+
 def test_gl_sharing_attribute_enabled(qapp):
     """Regression: QWebEngineView can only be imported after QApplication if
     AA_ShareOpenGLContexts was set beforehand. Otherwise the Winlink tab silently

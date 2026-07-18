@@ -37,6 +37,47 @@ def _ensure_qt_lib_path() -> None:
     os.execv(sys.executable, [sys.executable, "-m", "uvprotermbt", *sys.argv[1:]])
 
 
+def _locate_webengine_runtime() -> None:
+    """Point QtWebEngine at its helper process + data files.
+
+    Same split-install problem as the Qt libs: when PyQt6-WebEngine lands in a
+    different site-packages root than base PyQt6, WebEngine looks for
+    QtWebEngineProcess (and its resources/locales) next to base PyQt6 and can't
+    find it — the app aborts with 'could not find Qt WebEngine Process'. Scan
+    PyQt6's package paths for the root that actually has the process binary and
+    export the locations WebEngine reads at init.
+
+    Also disables the Chromium sandbox: pip-wheel WebEngine ships a chrome-sandbox
+    that usually isn't setuid-root, which crashes the renderer. The embedded page
+    is local and trusted (PAT's own UI on localhost), so this is an acceptable
+    trade-off to make it load reliably. Each var uses setdefault so a user can
+    override.
+    """
+    import os
+
+    try:
+        import importlib.util
+        if importlib.util.find_spec("PyQt6.QtWebEngineWidgets") is None:
+            return
+        import PyQt6
+    except Exception:
+        return
+
+    for base in PyQt6.__path__:
+        qt6 = os.path.join(base, "Qt6")
+        proc = os.path.join(qt6, "libexec", "QtWebEngineProcess")
+        if os.path.exists(proc):
+            os.environ.setdefault("QTWEBENGINEPROCESS_PATH", proc)
+            res = os.path.join(qt6, "resources")
+            if os.path.isdir(res):
+                os.environ.setdefault("QTWEBENGINE_RESOURCES_PATH", res)
+            loc = os.path.join(qt6, "translations", "qtwebengine_locales")
+            if os.path.isdir(loc):
+                os.environ.setdefault("QTWEBENGINE_LOCALES_PATH", loc)
+            break
+    os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
+
+
 def _enable_webengine_gl_sharing() -> None:
     """Enable OpenGL context sharing before any QApplication is created.
 
@@ -58,6 +99,7 @@ def _enable_webengine_gl_sharing() -> None:
 
 def main() -> None:
     _ensure_qt_lib_path()  # must run before any Qt import
+    _locate_webengine_runtime()  # point WebEngine at its process/resources
     _enable_webengine_gl_sharing()  # must run before any QApplication is created
 
     from PyQt6.QtGui import QIcon
