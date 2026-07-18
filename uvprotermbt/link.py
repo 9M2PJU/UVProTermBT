@@ -132,11 +132,18 @@ class RfcommKissLink:
     """
 
     def __init__(self, address: str, channel: Optional[int] = None,
-                 adapter: str = _DEFAULT_ADAPTER) -> None:
+                 adapter: str = _DEFAULT_ADAPTER, uuid: str = SPP_UUID,
+                 profile_name: str = "UVProTermBT-KISS") -> None:
         # `channel` is accepted for backwards compatibility but ignored: BlueZ
-        # discovers the RFCOMM channel via SDP from SPP_UUID.
+        # discovers the RFCOMM channel via SDP from the profile UUID. `uuid`
+        # selects which RFCOMM service to mount — SPP for KISS (default) or the
+        # radio's vendor audio service (see uvprotermbt/audio_link.py). The
+        # transport itself is protocol-agnostic (moves raw bytes; the caller
+        # frames), so the same machinery serves both.
         self._address = address
         self._adapter = adapter
+        self._uuid = uuid
+        self._profile_name = profile_name
         self._device_path = _device_path(adapter, address)
         # Unique per-instance object path so a rebuilt link (new instance on the
         # same shared SystemBus) doesn't collide with a not-yet-torn-down one.
@@ -247,9 +254,9 @@ class RfcommKissLink:
             "org.bluez.ProfileManager1",
         )
         try:
-            manager.RegisterProfile(self._profile_path, SPP_UUID, {
+            manager.RegisterProfile(self._profile_path, self._uuid, {
                 "Role": "client",
-                "Name": "UVProTermBT-KISS",
+                "Name": self._profile_name,
                 "AutoConnect": dbus.Boolean(True),
             })
         except dbus.DBusException as e:
@@ -298,7 +305,7 @@ class RfcommKissLink:
         # avoids the whole-device Disconnect()/Connect() churn that fought the
         # audio profile and produced the connect/disconnect flapping.
         def on_ok() -> None:
-            print("[link] ConnectProfile(SPP) completed")
+            print(f"[link:{self._profile_name}] ConnectProfile completed")
 
         def on_err(e) -> None:
             name = e.get_dbus_name()
@@ -312,7 +319,7 @@ class RfcommKissLink:
             if "InProgress" not in name and "NoReply" not in name:
                 try:
                     self._device.DisconnectProfile(
-                        SPP_UUID,
+                        self._uuid,
                         reply_handler=lambda: None,
                         error_handler=lambda _e: None,
                     )
@@ -321,7 +328,7 @@ class RfcommKissLink:
 
         try:
             self._device.ConnectProfile(
-                SPP_UUID,
+                self._uuid,
                 reply_handler=on_ok,
                 error_handler=on_err,
                 timeout=_CONNECT_DBUS_TIMEOUT_S,
@@ -379,7 +386,7 @@ class RfcommKissLink:
         self._fd_watch = GLib.io_add_watch(
             fd, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self._on_fd_event
         )
-        print(f"[link] connected — RFCOMM fd {fd} via SerialPort profile")
+        print(f"[link:{self._profile_name}] connected — RFCOMM fd {fd}")
 
     def _on_fd_event(self, fd: int, condition: int) -> bool:
         if condition & (GLib.IO_HUP | GLib.IO_ERR):

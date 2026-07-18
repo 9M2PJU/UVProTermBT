@@ -1,6 +1,24 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-17 — SSTV M0/M1: audio-channel scaffolding (branch sstv-audio)
+- Goal: SSTV tab (TX/RX images) via the radio's Generic Audio RFCOMM channel,
+  reverse-engineered from chengmania/HTCommander. Coexists with KISS (Greg
+  confirmed on air). Full protocol in docs/GAIA_AUDIO_SSTV.md.
+- audio_frame.py (+ 7 tests): HDLC-style 0x7e/0x7d framer with command byte
+  (mirrors kiss.py). RX cmds 0x00/0x03=audio, 0x01=end, 0x02=ack, 0x09=tx-echo.
+  END_AUDIO_FRAME = 7e 01 00 01 00...7e (stop-transmit).
+- sbc.py (+ 4 tests): ctypes binding to libsbc.so.1. SbcDecoder (streaming) +
+  SbcEncoder fixed to the radio format (32k/mono/blk16/sb8/loudness/bitpool40).
+  BENCH-VERIFIED: encode→decode round-trips, 256-byte PCM frames, 0x9c sync.
+- audio_link.py: RfcommAudioLink = link.py transport pointed at the audio UUID
+  39144315-... link.py generalized with uuid/profile_name params (backward-compat;
+  the unique-profile-path fix lets KISS + audio links coexist on the shared bus).
+- M1 tool: `python -m uvprotermbt.audio_capture --seconds 30` — opens the audio
+  channel, deframes, SBC-decodes to uvpro-audio.wav (+ .sbc) and prints stats.
+  The make-or-break "do we get real audio off the channel on Linux" test.
+- Suite 65/65. Master untouched (still v0.9.0). NEXT: Greg runs the M1 capture
+  on air; if the WAV has real audio, proceed to M2 (SSTV RX decode).
 2026-07-17 — v0.9.0: first tagged public release
 - __version__ = "0.9.0" in uvprotermbt/__init__.py (single source of truth),
   surfaced in Help → About and via `python -m uvprotermbt --version`.
