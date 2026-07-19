@@ -13,8 +13,10 @@ echo "==> System packages — needs sudo"
 #   AX.25 port. Installed upfront so Winlink is ready without a later prompt.
 if command -v apt >/dev/null 2>&1; then
     sudo apt update
+    # libsbc1 + libsndfile1: SSTV audio codec + decoder audio I/O.
     sudo apt install -y python3-dbus python3-gi python3-venv \
-                        ax25-tools ax25-apps libax25
+                        ax25-tools ax25-apps libax25 \
+                        libsbc1 libsndfile1
 else
     echo "!! Not a Debian/Ubuntu system. Install python3-dbus + python3-gi (PyGObject)"
     echo "   and ax25-tools/ax25-apps/libax25 with your package manager, then re-run,"
@@ -25,6 +27,9 @@ echo "==> Python venv (--system-site-packages so it can see dbus/gi)"
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
+# SSTV receive decoder (GitHub-only; best-effort — transmit works without it).
+.venv/bin/pip install "git+https://github.com/colaclanth/sstv.git" \
+    || echo "!! SSTV decoder install failed — SSTV receive will be unavailable (transmit still works)."
 
 echo "==> Desktop launcher + icon (app menu + Desktop)"
 "$here/scripts/install-desktop-entry.sh"

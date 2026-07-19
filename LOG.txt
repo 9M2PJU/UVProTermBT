@@ -1,6 +1,26 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-19 — v0.9.5: SSTV tab (M5) — the finished feature
+- gui/sstv_tab.py (new): SstvTab widget. Enable SSTV opens the RfcommAudioLink
+  (alongside KISS) and sends the GAIA handshake on the KISS/SPP link (radio
+  demuxes GAIA from KISS) so the radio keys. TX: pick image + mode -> background
+  thread SSTV-encodes -> SBC -> small 0x7e frames via audio_tx.transmit_pcm. RX:
+  audio -> deframe -> SBC decode -> accumulate PCM -> on a silence gap after a
+  burst, background-decode to an image (colaclanth). Results marshalled to the Qt
+  thread via a queue drained in poll(). Received images saved to
+  ~/.local/share/uvprotermbt/sstv/.
+- main_window.py: 5th tab "SSTV" (MODES += SSTV); _build_sstv_tab embeds SstvTab
+  over a compact log view; _poll polls it; closeEvent shuts it down.
+- Deps: requirements.txt += pysstv; install.sh apt += libsbc1 libsndfile1 and
+  best-effort `pip install git+.../colaclanth/sstv` (RX decoder); preflight.sh
+  reports libsbc/pysstv/decoder. README updated (5 modes; SSTV deps).
+- tests/test_sstv_tab.py (3): enable sends GAIA handshake + opens audio; disable
+  stops audio; short RX audio is dropped not decoded. Suite 78/78.
+- __version__ 0.9.5. This ships the SSTV feature (TX+RX proven on air this
+  session). MERGED to master + tagged v0.9.5.
+
+
 2026-07-19 — SSTV M3 TX CRACKED (radio keys + transmits our audio)
 - Definitive method: ran HTCommander's Linux desktop build on this box, captured
   the FULL HCI with `sudo btmon -w` (untruncated, unlike the phone's filtered

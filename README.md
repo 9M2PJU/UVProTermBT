@@ -4,12 +4,16 @@ A desktop **AX.25 packet messenger + terminal** for the **BTech UV-Pro** /
 **VGC VR-N76** (the "Benshi" radio family), talking to the radio's built-in
 **KISS TNC over classic Bluetooth** — no cable, no external TNC.
 
-Four modes in one PyQt6 window (styled after OpenWave), light/dark themes:
+Five modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 
 - **Chat** — SMS-style APRS messaging (send/receive, auto-ack).
 - **APRS** — live monitor of decoded traffic + a heard-stations list.
 - **BBS** — a full AX.25 connected-mode terminal (connect to BPQ/nodes).
-- **Winlink** — connects at the AX.25 layer (Winlink B2F protocol is WIP).
+- **Winlink** — brings up the kernel AX.25 port and embeds [PAT](https://getpat.io/)'s web UI in-window.
+- **SSTV** — send and receive images over the radio's **Bluetooth audio channel**
+  (Robot36 and more). Reverse-engineered from HTCommander; see
+  [`docs/GAIA_AUDIO_SSTV.md`](docs/GAIA_AUDIO_SSTV.md). *(New in v0.9.5 —
+  transmit + receive proven on air; needs `pysstv` + the SSTV decoder, see below.)*
 
 > **Why this exists:** the usual Linux recipe for a Bluetooth KISS TNC
 > (`kissattach /dev/rfcomm0`) does **not** work with this radio. Its KISS
@@ -27,6 +31,10 @@ Four modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 - **Winlink only:** [PAT](https://getpat.io/) installed separately, plus a
   PolicyKit agent (KDE/GNOME provide one). `ax25-tools` is installed for you.
   Run `./run.sh --check` to verify everything Winlink needs is present.
+- **SSTV only:** the SBC codec `libsbc1` (system), `pysstv` (encode, installed by
+  `install.sh`), and the decoder
+  `pip install git+https://github.com/colaclanth/sstv.git` (numpy/scipy; needs
+  `libsndfile1`). Without the decoder you can still transmit; receive needs it.
 
 ## Install & run
 

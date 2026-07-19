@@ -10,6 +10,14 @@ pytest
 # system browser (see uvprotermbt/gui/pat_panel.py).
 PyQt6-WebEngine
 
+# SSTV image transmit (encode). Receive/decode additionally needs the
+# colaclanth SSTV decoder, which is GitHub-only (not on PyPI), so it isn't listed
+# here — install it separately if you want SSTV RX:
+#   pip install git+https://github.com/colaclanth/sstv.git
+# The SBC audio codec uses the system libsbc1 (via ctypes). See
+# docs/GAIA_AUDIO_SSTV.md.
+pysstv
+
 # NOTE: the Bluetooth transport (uvprotermbt/link.py) also needs the BlueZ
 # D-Bus bindings, which are SYSTEM packages, not pip installs:
 #     sudo apt install python3-dbus python3-gi

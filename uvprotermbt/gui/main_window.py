@@ -37,8 +37,8 @@ from ..kiss import KissDecoder, encode_frame
 from ..link import RfcommKissLink, dbus_available
 from . import theme
 
-CHAT, MONITOR, BBS, WINLINK = "Chat", "APRS", "BBS", "Winlink"
-MODES = [CHAT, MONITOR, BBS, WINLINK]
+CHAT, MONITOR, BBS, WINLINK, SSTV = "Chat", "APRS", "BBS", "Winlink", "SSTV"
+MODES = [CHAT, MONITOR, BBS, WINLINK, SSTV]
 
 
 def _ts() -> str:
@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         self._bridge_active = False
         self._helper_proc = None       # pkexec QProcess (kissattach/install/detach)
         self._pat_panel = None         # embedded PAT web UI (built in _build_winlink_tab)
+        self._sstv_tab = None          # SstvTab (built in _build_sstv_tab)
         self._closing = False          # set in closeEvent so async callbacks bail cleanly
         # per-tab message records, so a theme switch can re-render with new colors
         self._records: dict[str, list[tuple]] = {m: [] for m in MODES}
@@ -78,6 +79,9 @@ class MainWindow(QMainWindow):
                            "tools + runs kissattach for you, with a password prompt), then "
                            "in PAT use AX.25 engine 'linux', axport 'wl2k'. PAT does the "
                            "Winlink B2F; this app just bridges the radio.")
+        self._sys(SSTV, "SSTV — send/receive images over the radio's Bluetooth audio. "
+                        "Connect the radio (● BT), click Enable SSTV, then Send Image "
+                        "to transmit; received images decode automatically.")
 
         if not settings.is_configured():
             self._sys(CHAT, "not configured — set your callsign and radio in "
@@ -159,6 +163,8 @@ class MainWindow(QMainWindow):
                 self._tabs.addTab(self._build_monitor_tab(view), mode)
             elif mode == WINLINK:
                 self._tabs.addTab(self._build_winlink_tab(view), mode)
+            elif mode == SSTV:
+                self._tabs.addTab(self._build_sstv_tab(view), mode)
             else:
                 self._tabs.addTab(view, mode)
         vbox.addWidget(self._tabs, 1)
@@ -209,6 +215,22 @@ class MainWindow(QMainWindow):
         self._pat_panel = PatPanel()
         self._winlink_stack.addWidget(self._pat_panel)
         v.addWidget(self._winlink_stack, 1)
+        return w
+
+    def _build_sstv_tab(self, view) -> QWidget:
+        """SSTV tab = the SstvTab widget (TX/RX images over the audio channel)
+        above a short status log."""
+        from .sstv_tab import SstvTab
+
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
+        self._sstv_tab = SstvTab(
+            self.settings, lambda: self.link, lambda m: self._sys(SSTV, m))
+        v.addWidget(self._sstv_tab, 1)
+        view.setMaximumHeight(90)  # keep the log compact under the image
+        v.addWidget(view)
         return w
 
     def _build_monitor_tab(self, view) -> QWidget:
@@ -477,6 +499,8 @@ class MainWindow(QMainWindow):
             self._send_message(text)
         elif mode == MONITOR:
             self._sys(MONITOR, "monitor is receive-only; use the Chat tab to send")
+        elif mode == SSTV:
+            self._sys(SSTV, "use Enable SSTV + Send Image above (no text input here)")
         elif mode in (BBS, WINLINK):
             self._bbs_send_line(text)
 
@@ -768,6 +792,8 @@ class MainWindow(QMainWindow):
 
     def _poll(self) -> None:
         self.link.poll()
+        if self._sstv_tab is not None:
+            self._sstv_tab.poll()
         self._refresh_bt_label()
 
     def _refresh_bt_label(self) -> None:
@@ -858,6 +884,8 @@ class MainWindow(QMainWindow):
             self.settings.save()
         except Exception:
             pass
+        if self._sstv_tab is not None:
+            self._sstv_tab.shutdown()
         if self._pat_panel is not None:
             self._pat_panel.stop_pat_http()
         if self._bridge_active:

@@ -60,6 +60,24 @@ else
 fi
 
 echo
+echo "SSTV (optional — the SSTV tab):"
+if [ -x "$here/.venv/bin/python" ] && "$here/.venv/bin/python" -c 'import ctypes.util,sys; sys.exit(0 if ctypes.util.find_library("sbc") else 1)' 2>/dev/null; then
+    say_ok "libsbc present (audio codec)"
+else
+    say_bad "libsbc missing — install:  sudo apt install libsbc1"
+fi
+if [ -x "$here/.venv/bin/python" ] && "$here/.venv/bin/python" -c 'import pysstv' 2>/dev/null; then
+    say_ok "pysstv present (SSTV transmit)"
+else
+    say_info "pysstv not installed — SSTV transmit unavailable (pip install pysstv)"
+fi
+if [ -x "$here/.venv/bin/python" ] && "$here/.venv/bin/python" -c 'import sstv.decode' 2>/dev/null; then
+    say_ok "SSTV decoder present (receive)"
+else
+    say_info "SSTV decoder not installed — SSTV receive unavailable (pip install git+https://github.com/colaclanth/sstv.git)"
+fi
+
+echo
 if [ "$missing" -eq 0 ]; then
     echo "All good."
 else
