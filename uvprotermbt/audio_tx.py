@@ -22,7 +22,8 @@ import time
 import wave
 from typing import Callable, Optional
 
-from .audio_frame import CMD_RX_AUDIO, END_AUDIO_FRAME, encode_frame
+from .audio_frame import (CMD_RX_AUDIO, END_AUDIO_FRAME, AudioFrameDecoder,
+                          encode_frame)
 from .sbc import RADIO_SAMPLE_RATE, SbcEncoder
 
 # TX audio frames carry command byte 0x00 (audio_engine.dart `_escapeBytes(0, …)`).
@@ -134,6 +135,19 @@ def _main() -> None:
     print("⚠ This TRANSMITS on your radio's current frequency. ID and keep it legal.")
     mac = args.mac or Settings.load().bt_mac
     link = RfcommAudioLink(mac)
+
+    # Diagnostic: watch what the radio sends back. If we see command 0x09
+    # (transmit-audio echo), the radio IS ingesting our audio as a transmission
+    # (so it's a keying problem); if we see nothing, it's ignoring our audio.
+    from collections import Counter
+    rx_deframer = AudioFrameDecoder()
+    rx_cmds: Counter = Counter()
+
+    def on_rx(data: bytes) -> None:
+        for fr in rx_deframer.feed(data):
+            rx_cmds[fr.command] += 1
+
+    link.on_receive(on_rx)
     print(f"[tx] opening audio channel on {mac} …")
     link.begin()
     for _ in range(100):  # wait up to ~5 s for the channel
@@ -153,8 +167,21 @@ def _main() -> None:
     try:
         transmit_pcm(link, pcm, sample_rate=sr, lead_s=args.lead)
     finally:
-        time.sleep(1.0)  # let the END frame flush before we drop the channel
+        # Drain anything the radio sent back (echo/response) for ~2 s.
+        drain_end = time.monotonic() + 2.0
+        while time.monotonic() < drain_end:
+            link.poll()
+            time.sleep(0.05)
         link.stop()
+
+    echo = rx_cmds.get(0x09, 0)
+    print(f"\n[diag] frames from radio during TX (by cmd): {dict(rx_cmds)}")
+    if echo:
+        print(f"[diag] saw {echo} TX-echo frames (0x09) — the radio IS ingesting "
+              "our audio as transmit. This is a keying problem, not a data problem.")
+    else:
+        print("[diag] no TX-echo (0x09) frames — the radio is NOT treating our "
+              "audio as a transmission (likely needs the GAIA control channel).")
 
 
 if __name__ == "__main__":
