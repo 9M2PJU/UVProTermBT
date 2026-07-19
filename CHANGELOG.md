@@ -13,9 +13,11 @@ move more freely than SemVer would strictly require during the 0.x line).
 ### Added
 - **Packaging**: `.deb`, `.rpm`, `.AppImage` builds for **amd64 and arm64**,
   produced by `packaging/build.sh` and the `release.yml` GitHub Actions
-  workflow. Native-package build container is `ubuntu:20.04` (glibc 2.31)
-  for broad distro compatibility; arm64 uses native `ubuntu-24.04-arm`
-  runners (no QEMU). Packaging by **9M2PJU**.
+  workflow. Native-package build container is `ubuntu:22.04` (glibc 2.35)
+  for broad distro compatibility (Ubuntu 20.04 reached EOL in May 2025 and
+  deadsnakes dropped its focal packages, so the baseline moved to 22.04);
+  arm64 uses native `ubuntu-24.04-arm` runners (no QEMU). Packaging by
+  **9M2PJU**.
 - `pyproject.toml` (PEP 517 metadata, entry point `uvprotermbt`). The package
   is now pip-installable as a real package, not just clone-and-run.
 - PyInstaller spec (`packaging/uvprotermbt.spec`, onedir) bundling PyQt6 +

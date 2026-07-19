@@ -189,8 +189,8 @@ packaging/build.sh appimage
 ```
 
 Artifacts land in `dist/`. The native-package build container used by CI is
-`ubuntu:20.04` (glibc 2.31) so the bundles run on Ubuntu 20.04+, Debian 11+,
-Fedora 36+, RHEL 9+, and openSUSE Leap 15.4+. See [`packaging/`](packaging/)
+`ubuntu:22.04` (glibc 2.35) so the bundles run on Ubuntu 22.04+, Debian 12+,
+Fedora 37+, RHEL 9+, and openSUSE Leap 15.5+. See [`packaging/`](packaging/)
 and [`CHANGELOG.md`](CHANGELOG.md) for details.
 
 ## License / credit

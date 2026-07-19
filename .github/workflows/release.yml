@@ -3,10 +3,12 @@ name: Release
 # On a tag matching v*, build .deb / .rpm / .AppImage for amd64 and arm64
 # (6 artifacts total) and attach them to the GitHub Release.
 #
-# Build container: ubuntu:20.04 (glibc 2.31) — oldest glibc we target, so the
-#   bundles run on Ubuntu 20.04+, Debian 11+, Fedora 36+, RHEL 9+, openSUSE
-#   Leap 15.4+. Building inside the container means the PyInstaller bundle
-#   links against that oldest glibc.
+# Build container: ubuntu:22.04 (glibc 2.35) — oldest still-supported LTS.
+#   Ubuntu 20.04 reached EOL in May 2025 and deadsnakes deleted its focal
+#   packages, so we can no longer get python3.12 there. ubuntu:22.04 (jammy)
+#   is still actively supported, deadsnakes carries python3.12 for it, and
+#   glibc 2.35 means the bundles run on Ubuntu 22.04+, Debian 12+,
+#   Fedora 37+, RHEL 9+, openSUSE Leap 15.5+.
 # Arm64: native ubuntu-24.04-arm runner (no QEMU — faster, native wheels).
 
 on:
@@ -23,7 +25,7 @@ jobs:
   build:
     name: Build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    container: ubuntu:20.04
+    container: ubuntu:22.04
     strategy:
       fail-fast: false
       matrix:
@@ -35,14 +37,14 @@ jobs:
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
-      # ubuntu:20.04's default user is root, which breaks actions/checkout's
+      # ubuntu:22.04's default user is root, which breaks actions/checkout's
       # permission model. The checkout action handles this, but be aware.
       - uses: actions/checkout@v4
 
       - name: Install build prerequisites
         run: |
           apt-get update
-          # ubuntu:20.04 ships Python 3.8; we need 3.12+. Use deadsnakes.
+          # ubuntu:22.04 ships Python 3.10; we need 3.12+. Use deadsnakes.
           apt-get install -y ca-certificates curl gnupg software-properties-common
           add-apt-repository -y ppa:deadsnakes/ppa
           apt-get update
