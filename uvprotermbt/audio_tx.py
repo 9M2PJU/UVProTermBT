@@ -106,6 +106,8 @@ def _main() -> None:
     ap.add_argument("--mode", default="Robot36", help="SSTV mode (default Robot36)")
     ap.add_argument("--lead", type=float, default=10.0,
                     help="seconds of audio to buffer ahead (radio keys once buffered)")
+    ap.add_argument("--settle", type=float, default=2.0,
+                    help="seconds to wait after the channel opens before transmitting")
     args = ap.parse_args()
 
     if not args.tone and not args.image:
@@ -142,10 +144,16 @@ def _main() -> None:
     if not link.is_connected():
         link.stop()
         raise SystemExit("audio channel didn't connect")
+    if args.settle > 0:
+        print(f"[tx] channel open; settling {args.settle:.1f} s before transmit …")
+        settle_end = time.monotonic() + args.settle
+        while time.monotonic() < settle_end:
+            link.poll()
+            time.sleep(0.05)
     try:
         transmit_pcm(link, pcm, sample_rate=sr, lead_s=args.lead)
     finally:
-        time.sleep(0.3)
+        time.sleep(1.0)  # let the END frame flush before we drop the channel
         link.stop()
 
 
