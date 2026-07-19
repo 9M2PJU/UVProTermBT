@@ -110,7 +110,7 @@ def _try_sstv_decode(wav_path: str, png_path: str) -> None:
         return
     print("[m2] decoding SSTV from the capture …")
     try:
-        img = sstv.decode_wav(wav_path)
+        img, _mode = sstv.decode_wav(wav_path)
     except Exception as e:  # noqa: BLE001
         print(f"[m2] SSTV decode error: {e}")
         return

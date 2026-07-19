@@ -45,9 +45,10 @@ def test_roundtrip_robot36(tmp_path):
 
     wav = str(tmp_path / "rt.wav")
     sstv.encode_wav(src, wav, mode="Robot36")
-    out = sstv.decode_wav(wav)
+    out, mode = sstv.decode_wav(wav)
 
     assert out is not None
     assert out.size == (320, 240)
+    assert mode and "Robot" in mode  # auto-detected the mode from the VIS header
     # Analog SSTV: expect a close-but-not-exact match.
     assert _mean_diff(src, out) < 60.0

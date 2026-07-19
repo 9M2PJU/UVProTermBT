@@ -231,7 +231,7 @@ class SstvTab(QWidget):
                 w.setsampwidth(2)
                 w.setframerate(RADIO_SAMPLE_RATE)
                 w.writeframes(pcm)
-            img = sstv.decode_wav(tmp) if sstv.DECODE_AVAILABLE else None
+            img, mode = sstv.decode_wav(tmp) if sstv.DECODE_AVAILABLE else (None, None)
             os.unlink(tmp)
             if img is None:
                 self._results.put(("rx_none", None))
@@ -239,7 +239,7 @@ class SstvTab(QWidget):
             _RX_DIR.mkdir(parents=True, exist_ok=True)
             path = str(_RX_DIR / f"rx_{time.strftime('%Y%m%d_%H%M%S')}.png")
             img.save(path)
-            self._results.put(("rx_image", path))
+            self._results.put(("rx_image", (path, mode)))
         except Exception as exc:  # noqa: BLE001
             self._results.put(("rx_error", str(exc)))
 
@@ -341,14 +341,16 @@ class SstvTab(QWidget):
             except queue.Empty:
                 break
             if kind == "rx_image":
-                pm = QPixmap(payload)
+                path, mode = payload
+                pm = QPixmap(path)
                 if not pm.isNull():
                     self._rx_image.setPixmap(pm.scaled(
                         self._rx_image.width(), self._rx_image.height(),
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation))
-                self._rx_info.setText(f"received image saved to {payload}")
-                self._log(f"SSTV image received → {payload}")
+                tag = f"{mode} " if mode else ""
+                self._rx_info.setText(f"received {tag}image → {path}")
+                self._log(f"SSTV {tag}image received → {path}")
                 self._subtabs.setCurrentIndex(0)  # jump to Receive to show it
                 self._decoding = False
                 self._status.setText("SSTV: listening…")

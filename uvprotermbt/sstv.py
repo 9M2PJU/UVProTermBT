@@ -61,14 +61,17 @@ except Exception:  # pragma: no cover
 
 
 def decode_wav(path: str):
-    """Decode an SSTV WAV to a PIL.Image, or None if no image was found."""
+    """Decode an SSTV WAV, auto-detecting the mode from its VIS header. Returns
+    (image, mode_name); image is None if no SSTV signal was found."""
     if not DECODE_AVAILABLE:
         raise RuntimeError("SSTV decoder not installed "
                            "(pip install git+https://github.com/colaclanth/sstv.git)")
     with open(path, "rb") as f:
         dec = _SSTVDecoder(f)
         try:
-            return dec.decode()
+            img = dec.decode()
+            mode = getattr(getattr(dec, "mode", None), "NAME", None)
+            return img, mode
         finally:
             dec.close()
 
@@ -108,11 +111,11 @@ def _main() -> None:
     ap.add_argument("-o", "--out", default=None, help="output PNG (default: <wav>.png)")
     args = ap.parse_args()
     out = args.out or (args.wav.rsplit(".", 1)[0] + ".png")
-    img = decode_wav(args.wav)
+    img, mode = decode_wav(args.wav)
     if img is None:
         raise SystemExit("no SSTV image found in the audio (no VIS header detected)")
     img.save(out)
-    print(f"decoded {img.size[0]}x{img.size[1]} -> {out}")
+    print(f"decoded {mode or '?'} {img.size[0]}x{img.size[1]} -> {out}")
 
 
 if __name__ == "__main__":
