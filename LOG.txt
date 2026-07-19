@@ -1,6 +1,25 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-18 — SSTV M3: TX blocked on GAIA control channel; built GAIA probe
+- TX diagnosis: streaming audio (cmd 0x00 frames + END) does NOT key the radio.
+  Confirmed no PTT command exists in HTCommander (doProgFunc/setPhoneStatus are
+  never sent), frame size is fine (batches up to 300 SBC frames), start() just
+  opens the channel. Added a TX-echo diagnostic: the radio sends back NO 0x09
+  (transmit-echo) frames → it is NOT ingesting our audio as a transmission. Only
+  a brief "blip" at the END frame. RX needs only the audio channel, but TX also
+  needs the GAIA CONTROL channel that HTCommander always keeps open.
+- Also fixed link.send(): EAGAIN/partial-write handling (streaming audio filled
+  the socket buffer and the old code treated EAGAIN as a disconnect).
+- Chose to PROBE GAIA before committing to the full TX build. New uvprotermbt/
+  gaia.py: GAIA frame codec (FF 01 flags len grp16 cmd16 data; group basic=2),
+  streaming decoder that resyncs past interleaved bytes. tests/test_gaia.py (6).
+  uvprotermbt/gaia_probe.py: opens SPP, sends getDevId/getDevInfo/readStatus,
+  reports whether the radio answers GAIA + whether KISS (0xC0) traffic appears
+  (coexistence question). Suite 75/75.
+- NEXT (Greg): run `python -m uvprotermbt.gaia_probe` with KISS TNC ON and OFF;
+  does the radio answer GAIA on SPP? That decides whether TX is feasible without
+  abandoning KISS. RX SSTV remains done + shippable. Master still v0.9.0.
 2026-07-18 — SSTV M2 PROVEN ON AIR + M3 TX path (branch sstv-audio)
 - M2 SUCCESS on air: received a real SSTV image off the air and decoded it
   (audio_capture --sstv → 320x240 PNG, a Minecraft scene). Full RX chain proven:
