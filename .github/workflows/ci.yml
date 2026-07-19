@@ -56,5 +56,5 @@ jobs:
 
       - name: Verify the package metadata builds
         run: |
-          .venv/bin/pip install build
+          .venv/bin/pip install build setuptools wheel
           .venv/bin/python -m build --sdist --no-isolation --outdir dist/
