@@ -30,6 +30,8 @@ python3 -m venv --system-site-packages .venv
 # SSTV receive decoder (GitHub-only; best-effort — transmit works without it).
 .venv/bin/pip install "git+https://github.com/colaclanth/sstv.git" \
     || echo "!! SSTV decoder install failed — SSTV receive will be unavailable (transmit still works)."
+# Mark requirements as installed so run.sh only re-installs when they change.
+touch "$here/.venv/.reqs-stamp"
 
 echo "==> Desktop launcher + icon (app menu + Desktop)"
 "$here/scripts/install-desktop-entry.sh"
