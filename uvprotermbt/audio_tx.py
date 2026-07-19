@@ -48,13 +48,18 @@ def pcm_from_wav(path: str) -> tuple[bytes, int]:
 
 
 def transmit_pcm(link, pcm: bytes, *, sample_rate: int = RADIO_SAMPLE_RATE,
-                 lead_s: float = 1.5, chunk_ms: int = 200,
+                 lead_s: float = 10.0, chunk_ms: int = 200,
                  log: Callable[[str], None] = print) -> None:
     """SBC-encode `pcm`, frame it (cmd 0x00), and stream it to `link` paced to
     real time, then send END_AUDIO_FRAME. `link` is a connected RfcommAudioLink.
 
     `pcm` must be 16-bit LE mono at `sample_rate` (the radio's SBC is 32 kHz, so
-    pass 32 kHz PCM; SbcEncoder is fixed to that format)."""
+    pass 32 kHz PCM; SbcEncoder is fixed to that format).
+
+    `lead_s` is how far ahead of real time we let the radio's buffer fill before
+    throttling. The radio appears to key up only once enough audio is buffered, so
+    this must be generous — HTCommander uses a 10 s lead for SSTV/data (a shallow
+    lead never keys the radio; you just get a blip at the END frame)."""
     encoder = SbcEncoder()
     bytes_per_chunk = (sample_rate * chunk_ms // 1000) * 2  # 16-bit mono
     total = len(pcm)
@@ -99,6 +104,8 @@ def _main() -> None:
     ap.add_argument("--seconds", type=float, default=3.0, help="tone duration")
     ap.add_argument("--image", metavar="PNG", help="transmit an image as SSTV")
     ap.add_argument("--mode", default="Robot36", help="SSTV mode (default Robot36)")
+    ap.add_argument("--lead", type=float, default=10.0,
+                    help="seconds of audio to buffer ahead (radio keys once buffered)")
     args = ap.parse_args()
 
     if not args.tone and not args.image:
@@ -136,7 +143,7 @@ def _main() -> None:
         link.stop()
         raise SystemExit("audio channel didn't connect")
     try:
-        transmit_pcm(link, pcm, sample_rate=sr)
+        transmit_pcm(link, pcm, sample_rate=sr, lead_s=args.lead)
     finally:
         time.sleep(0.3)
         link.stop()
