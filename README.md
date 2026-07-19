@@ -188,10 +188,13 @@ packaging/build.sh rpm
 packaging/build.sh appimage
 ```
 
-Artifacts land in `dist/`. The native-package build container used by CI is
-`ubuntu:22.04` (glibc 2.35) so the bundles run on Ubuntu 22.04+, Debian 12+,
-Fedora 37+, RHEL 9+, and openSUSE Leap 15.5+. See [`packaging/`](packaging/)
-and [`CHANGELOG.md`](CHANGELOG.md) for details.
+Artifacts land in `dist/`. The CI build containers are per-arch for the
+broadest glibc compat that has a matching PyQt6 wheel: **amd64** builds in
+`ubuntu:22.04` (glibc 2.35 → Ubuntu 22.04+, Debian 12+, Fedora 37+, RHEL 9+,
+openSUSE Leap 15.5+); **arm64** builds in `ubuntu:24.04` (glibc 2.39 →
+Ubuntu 24.04+, Debian 13+, Fedora 40+, because PyQt6's arm64 wheel requires
+glibc 2.39). See [`packaging/`](packaging/) and [`CHANGELOG.md`](CHANGELOG.md)
+for details.
 
 ## License / credit
 

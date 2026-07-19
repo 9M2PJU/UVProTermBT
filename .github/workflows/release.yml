@@ -3,12 +3,14 @@ name: Release
 # On a tag matching v*, build .deb / .rpm / .AppImage for amd64 and arm64
 # (6 artifacts total) and attach them to the GitHub Release.
 #
-# Build container: ubuntu:22.04 (glibc 2.35) — oldest still-supported LTS.
-#   Ubuntu 20.04 reached EOL in May 2025 and deadsnakes deleted its focal
-#   packages, so we can no longer get python3.12 there. ubuntu:22.04 (jammy)
-#   is still actively supported, deadsnakes carries python3.12 for it, and
-#   glibc 2.35 means the bundles run on Ubuntu 22.04+, Debian 12+,
-#   Fedora 37+, RHEL 9+, openSUSE Leap 15.5+.
+# Build container: per-arch, oldest glibc that has a matching PyQt6 wheel.
+#   amd64: ubuntu:22.04 (glibc 2.35) — PyQt6 6.8.1 x86_64 wheel is
+#     manylinux_2_28 (glibc 2.28+). Bundles run on Ubuntu 22.04+, Debian 12+,
+#     Fedora 37+, RHEL 9+, openSUSE Leap 15.5+.
+#   arm64: ubuntu:24.04 (glibc 2.39) — PyQt6 6.8.1 aarch64 wheel is
+#     manylinux_2_39 (glibc 2.39+); no older-glibc arm64 wheel exists on PyPI.
+#     ubuntu:24.04 ships Python 3.12 natively (no deadsnakes needed).
+#     Bundles run on Ubuntu 24.04+, Debian 13+, Fedora 40+.
 # Arm64: native ubuntu-24.04-arm runner (no QEMU — faster, native wheels).
 
 on:
@@ -25,23 +27,26 @@ jobs:
   build:
     name: Build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    container: ubuntu:22.04
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: amd64
             runner: ubuntu-24.04
+            container: ubuntu:22.04
           - arch: arm64
             runner: ubuntu-24.04-arm
+            container: ubuntu:24.04
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
-      # ubuntu:22.04's default user is root, which breaks actions/checkout's
+      # The containers' default user is root, which breaks actions/checkout's
       # permission model. The checkout action handles this, but be aware.
       - uses: actions/checkout@v4
 
-      - name: Install build prerequisites
+      - name: Install build prerequisites (amd64 / ubuntu:22.04)
+        if: matrix.arch == 'amd64'
         run: |
           apt-get update
           # ubuntu:22.04 ships Python 3.10; we need 3.12+. Use deadsnakes.
@@ -57,7 +62,22 @@ jobs:
           # fpm (Ruby gem) — the .deb/.rpm packager.
           gem install --no-document fpm
 
-      - name: Make python3.12 the default python3
+      - name: Install build prerequisites (arm64 / ubuntu:24.04)
+        if: matrix.arch == 'arm64'
+        run: |
+          apt-get update
+          # ubuntu:24.04 ships Python 3.12 natively — no deadsnakes needed.
+          apt-get install -y \
+              python3 python3-venv python3-dev \
+              python3-dbus python3-gi \
+              libsbc1 libsndfile1 \
+              imagemagick gzip \
+              ruby gcc g++ pkg-config git
+          # fpm (Ruby gem) — the .deb/.rpm packager.
+          gem install --no-document fpm
+
+      - name: Make python3.12 the default python3 (amd64 only)
+        if: matrix.arch == 'amd64'
         run: |
           update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
           python3 --version

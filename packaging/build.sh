@@ -135,9 +135,9 @@ build_deb() {
         --depends "libsndfile1" \
         --depends "bluez" \
         --depends "policykit-1" \
-        --recommends "ax25-tools" \
-        --recommends "ax25-apps" \
-        --recommends "libax25-0" \
+        --deb-recommends "ax25-tools" \
+        --deb-recommends "ax25-apps" \
+        --deb-recommends "libax25-0" \
         --after-install packaging/postinst \
         --before-remove packaging/prerm \
         --deb-compression xz \
@@ -178,8 +178,6 @@ build_rpm() {
         --depends "libsndfile1" \
         --depends "bluez" \
         --depends "polkit" \
-        --recommends "ax25-tools" \
-        --recommends "ax25-apps" \
         --after-install packaging/postinst \
         --before-remove packaging/prerm \
         --rpm-compression xz \
