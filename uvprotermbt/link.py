@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import os
 import queue
+import select
 import threading
 from typing import Callable, Optional
 
@@ -204,12 +205,28 @@ class RfcommKissLink:
             fd = self._fd
         if fd is None or not self.is_connected():
             return
-        try:
-            os.write(fd, data)
-        except OSError as e:
-            print(f"[link] send failed: {type(e).__name__}: {e}")
-            # Teardown must run on the loop thread (touches D-Bus/GLib state).
-            GLib.idle_add(self._handle_disconnect)
+        # Write everything, coping with a full socket buffer. Tiny KISS frames
+        # almost never fill it, but streaming audio does: os.write on the
+        # non-blocking RFCOMM fd then raises EAGAIN (BlockingIOError). That means
+        # "buffer full, retry" — NOT a disconnect — so wait for the fd to become
+        # writable and continue. Also handle partial writes (RFCOMM is a stream).
+        view = memoryview(data)
+        while view:
+            try:
+                written = os.write(fd, view)
+                view = view[written:]
+            except BlockingIOError:
+                try:
+                    select.select([], [fd], [], 1.0)
+                except OSError:
+                    return  # fd went away mid-write
+            except InterruptedError:
+                continue
+            except OSError as e:
+                print(f"[link] send failed: {type(e).__name__}: {e}")
+                # Teardown must run on the loop thread (touches D-Bus/GLib state).
+                GLib.idle_add(self._handle_disconnect)
+                return
 
     def reconnect(self) -> None:
         """Force a fresh RFCOMM connection. Recovers a silently-wedged link —
