@@ -53,6 +53,39 @@ A Chat-tab APRS message transmitted by UVProTermBT, decoded by an independent
 
 ## Install & run
 
+### Option A — prebuilt package (recommended)
+
+Grab the latest release for your arch from the
+[Releases page](https://github.com/chengmania/UVProTermBT/releases):
+
+| Distro | amd64 (x86_64) | arm64 (aarch64) |
+|---|---|---|
+| Debian/Ubuntu | `uvprotermbt-<ver>-amd64.deb` | `uvprotermbt-<ver>-arm64.deb` |
+| Fedora/RHEL/SUSE | `uvprotermbt-<ver>-x86_64.rpm` | `uvprotermbt-<ver>-aarch64.rpm` |
+| Any (portable) | `uvprotermbt-<ver>-x86_64.AppImage` | `uvprotermbt-<ver>-aarch64.AppImage` |
+
+```bash
+# Debian/Ubuntu:
+sudo apt install ./uvprotermbt-_*-amd64.deb     # or arm64
+# Fedora/RHEL:
+sudo dnf install ./uvprotermbt-_*-x86_64.rpm    # or aarch64
+# AppImage (no install, just make it executable):
+chmod +x uvprotermbt-_*-x86_64.AppImage && ./uvprotermbt-_*-x86_64.AppImage
+```
+
+The `.deb`/`.rpm` declare `Depends`/`Requires` on the system BlueZ D-Bus
+bindings (`python3-dbus`, `python3-gi`), `libsbc1`, `libsndfile1`, `bluez`,
+and `polkit`, so your package manager pulls them in automatically. The
+AppImage bundles everything *except* those system-tied packages — on first
+run it prints the exact `apt`/`dnf`/`pacman`/`zypper` command if anything's
+missing. PAT (for Winlink) is **not** packaged in any format — install it
+separately from <https://getpat.io/>.
+
+After install, launch **"UVProTermBT"** from your app menu, or run
+`uvprotermbt` from a terminal.
+
+### Option B — from source (one command)
+
 ```bash
 git clone https://github.com/chengmania/UVProTermBT
 cd UVProTermBT
@@ -60,14 +93,18 @@ cd UVProTermBT
 ```
 
 That's it. **`./run.sh`** installs everything it needs the first time (asks for
-your password once, for `apt`), then launches the app. Every run after that it
-just starts. After the first run there's also a **"UVProTermBT" icon in your
-app menu** you can use instead.
+your password once, for your distro's package manager), then launches the app.
+Every run after that it just starts. Works on Debian/Ubuntu, Fedora/RHEL,
+Arch, and openSUSE. After the first run there's also a **"UVProTermBT" icon
+in your app menu** you can use instead.
 
 <details><summary>Prefer to do it by hand?</summary>
 
 ```bash
-sudo apt install python3-dbus python3-gi
+# Debian/Ubuntu:  sudo apt install python3-dbus python3-gi
+# Fedora:         sudo dnf install python3-dbus python3-gi
+# Arch:           sudo pacman -S python-dbus python-gobject
+# openSUSE:       sudo zypper install python3-dbus python3-gi
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m uvprotermbt
@@ -121,6 +158,36 @@ the fix in [`docs/UVPRO_N76_KISS_LINUX.md`](docs/UVPRO_N76_KISS_LINUX.md).
 Connected-mode BBS work is happiest on a quiet frequency; keep the radio's own
 APRS beacon off while using it as a TNC.
 
+Run `./run.sh --check` (from a source checkout) any time to get a doctor
+report of what's present and what's missing. From a package install, the
+same checks live in `scripts/preflight.sh` in the source tree.
+
+## Building packages locally
+
+The release pipeline is in [`.github/workflows/release.yml`](.github/workflows/release.yml)
+and produces `.deb` / `.rpm` / `.AppImage` for amd64 and arm64 on
+every `v*` tag. To reproduce a build locally:
+
+```bash
+# Prerequisites (Debian/Ubuntu names — adjust for your distro):
+sudo apt install python3-dbus python3-gi libsbc1 libsndfile1 \
+                 imagemagick gzip ruby
+gem install fpm                    # the .deb/.rpm packager
+pip install pyinstaller            # into the build venv (build.sh does this)
+
+# Build the native packages (.deb / .rpm / .AppImage) for the current arch:
+packaging/build.sh
+# Or just one:
+packaging/build.sh deb
+packaging/build.sh rpm
+packaging/build.sh appimage
+```
+
+Artifacts land in `dist/`. The native-package build container used by CI is
+`ubuntu:20.04` (glibc 2.31) so the bundles run on Ubuntu 20.04+, Debian 11+,
+Fedora 36+, RHEL 9+, and openSUSE Leap 15.4+. See [`packaging/`](packaging/)
+and [`CHANGELOG.md`](CHANGELOG.md) for details.
+
 ## License / credit
 
 Copyright (C) 2026 Greg (KC3SMW).
@@ -151,3 +218,5 @@ With thanks to the projects that made this possible:
   SBC codec, used for the RFCOMM SerialPort transport and the audio channel.
 - Built with **[PyQt6](https://www.riverbankcomputing.com/software/pyqt/)** and
   the kernel **AX.25** stack / `ax25-tools`.
+- **9M2PJU** — Linux packaging (.deb / .rpm / .AppImage for amd64 + arm64),
+  the PyInstaller bundle, and the release pipeline.

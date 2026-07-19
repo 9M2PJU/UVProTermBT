@@ -7,13 +7,32 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/distro.sh
+. "$here/scripts/distro.sh"
+distro_detect
 missing=0
 
 say_ok()   { printf '  \033[32m\xe2\x9c\x93\033[0m %s\n' "$1"; }
 say_bad()  { printf '  \033[31m\xe2\x9c\x97\033[0m %s\n' "$1"; missing=$((missing + 1)); }
 say_info() { printf '  \033[33m\xe2\x84\xb9\033[0m %s\n' "$1"; }
 
-echo "UVProTermBT preflight check"
+# hint <logical-pkg-name> — print the distro-correct install command.
+hint() {
+    local p
+    p="$(distro_pkg "$1")"
+    if [ -z "$p" ] || [ "$PKMGR" = "unknown" ]; then
+        echo "     install '$1' via your package manager"
+        return
+    fi
+    case "$PKMGR" in
+        apt)    echo "     sudo apt install $p" ;;
+        dnf)    echo "     sudo dnf install $p" ;;
+        pacman) echo "     sudo pacman -S $p" ;;
+        zypper) echo "     sudo zypper install $p" ;;
+    esac
+}
+
+echo "UVProTermBT preflight check  (detected: $DISTRO/$PKMGR)"
 echo
 echo "Core (Chat / APRS / BBS):"
 if [ -x "$here/.venv/bin/python" ]; then
@@ -42,11 +61,13 @@ if command -v kissattach >/dev/null 2>&1; then
     say_ok "ax25-tools (kissattach) present"
 else
     say_info "ax25-tools not installed — Start Winlink Bridge will offer to install it"
+    hint ax25-tools
 fi
 if command -v pkexec >/dev/null 2>&1; then
     say_ok "pkexec present"
 else
-    say_bad "pkexec missing — install it:  sudo apt install policykit-1"
+    say_bad "pkexec missing"
+    hint polkit
 fi
 if pgrep -f 'polkit.*authentication-agent|polkit-kde|polkit-gnome|polkit-mate|lxpolkit|xfce-polkit' >/dev/null 2>&1; then
     say_ok "PolicyKit agent running (the graphical password prompt will appear)"
@@ -64,7 +85,8 @@ echo "SSTV (optional — the SSTV tab):"
 if [ -x "$here/.venv/bin/python" ] && "$here/.venv/bin/python" -c 'import ctypes.util,sys; sys.exit(0 if ctypes.util.find_library("sbc") else 1)' 2>/dev/null; then
     say_ok "libsbc present (audio codec)"
 else
-    say_bad "libsbc missing — install:  sudo apt install libsbc1"
+    say_bad "libsbc missing"
+    hint sbc
 fi
 if [ -x "$here/.venv/bin/python" ] && "$here/.venv/bin/python" -c 'import pysstv' 2>/dev/null; then
     say_ok "pysstv present (SSTV transmit)"

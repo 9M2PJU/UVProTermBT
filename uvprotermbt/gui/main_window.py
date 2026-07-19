@@ -860,7 +860,8 @@ class MainWindow(QMainWindow):
             self, "About UVProTermBT",
             f"UVProTermBT v{__version__}\n\nAX.25 packet messenger + terminal for "
             "the BTech UV-Pro / VGC VR-N76 over classic Bluetooth (KISS TNC).\n\n"
-            "KC3SMW • styled after OpenWave.")
+            "KC3SMW • styled after OpenWave.\n"
+            "9M2PJU • Packaging (AppImage / .deb / .rpm).")
 
     def closeEvent(self, event):  # noqa: N802
         # Stop async callbacks from drawing into widgets Qt is about to delete.

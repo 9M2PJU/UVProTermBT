@@ -1,0 +1,106 @@
+name: Release
+
+# On a tag matching v*, build .deb / .rpm / .AppImage for amd64 and arm64
+# (6 artifacts total) and attach them to the GitHub Release.
+#
+# Build container: ubuntu:20.04 (glibc 2.31) — oldest glibc we target, so the
+#   bundles run on Ubuntu 20.04+, Debian 11+, Fedora 36+, RHEL 9+, openSUSE
+#   Leap 15.4+. Building inside the container means the PyInstaller bundle
+#   links against that oldest glibc.
+# Arm64: native ubuntu-24.04-arm runner (no QEMU — faster, native wheels).
+
+on:
+  push:
+    tags: ["v*"]
+  # Allow manual runs from the Actions tab for testing the pipeline without
+  # cutting a real release tag.
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to attach files to a GitHub Release
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # ubuntu:20.04's default user is root, which breaks actions/checkout's
+      # permission model. The checkout action handles this, but be aware.
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        run: |
+          apt-get update
+          # ubuntu:20.04 ships Python 3.8; we need 3.12+. Use deadsnakes.
+          apt-get install -y ca-certificates curl gnupg software-properties-common
+          add-apt-repository -y ppa:deadsnakes/ppa
+          apt-get update
+          apt-get install -y \
+              python3.12 python3.12-venv python3.12-dev \
+              python3-dbus python3-gi \
+              libsbc1 libsndfile1 \
+              imagemagick gzip \
+              ruby gcc g++ pkg-config git
+          # fpm (Ruby gem) — the .deb/.rpm packager.
+          gem install --no-document fpm
+
+      - name: Make python3.12 the default python3
+        run: |
+          update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+          python3 --version
+
+      - name: Build all three package formats
+        run: bash packaging/build.sh deb rpm appimage
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp dist/uvprotermbt-*.deb artifacts/ 2>/dev/null || true
+          cp dist/uvprotermbt-*.rpm artifacts/ 2>/dev/null || true
+          cp dist/uvprotermbt-*.AppImage artifacts/ 2>/dev/null || true
+          ls -la artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: uvprotermbt-${{ matrix.arch }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish to GitHub Release
+    needs: [build]
+    runs-on: ubuntu-24.04
+    # Only publish on real tag pushes; workflow_dispatch just builds + uploads
+    # artifacts for inspection without cutting a release.
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Show artifacts
+        run: ls -la artifacts/
+
+      - name: Create / update Release with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

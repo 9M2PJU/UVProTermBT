@@ -1,27 +1,22 @@
 #!/usr/bin/env bash
-# UVProTermBT installer for Debian/Ubuntu (incl. Kubuntu).
-# Installs the system BlueZ D-Bus bindings, creates a venv that can see them,
-# installs the Python deps, and adds a desktop launcher.
+# UVProTermBT installer — distro-portable (Debian/Ubuntu, Fedora/RHEL, Arch,
+# openSUSE). Installs the system BlueZ D-Bus bindings, creates a venv that can
+# see them, installs the Python deps, and adds a desktop launcher.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$here"
 
+# shellcheck source=scripts/distro.sh
+. "$here/scripts/distro.sh"
+distro_detect
+
 echo "==> System packages — needs sudo"
 # python3-dbus/gi: BlueZ D-Bus bindings (the radio transport).
 # ax25-tools/ax25-apps/libax25: kissattach + friends for the Winlink kernel
 #   AX.25 port. Installed upfront so Winlink is ready without a later prompt.
-if command -v apt >/dev/null 2>&1; then
-    sudo apt update
-    # libsbc1 + libsndfile1: SSTV audio codec + decoder audio I/O.
-    sudo apt install -y python3-dbus python3-gi python3-venv \
-                        ax25-tools ax25-apps libax25 \
-                        libsbc1 libsndfile1
-else
-    echo "!! Not a Debian/Ubuntu system. Install python3-dbus + python3-gi (PyGObject)"
-    echo "   and ax25-tools/ax25-apps/libax25 with your package manager, then re-run,"
-    echo "   or create the venv manually."
-fi
+# libsbc1 + libsndfile1: SSTV audio codec + decoder audio I/O.
+distro_install dbus gi venv ax25-tools ax25-apps libax25 sbc sndfile polkit
 
 echo "==> Python venv (--system-site-packages so it can see dbus/gi)"
 python3 -m venv --system-site-packages .venv

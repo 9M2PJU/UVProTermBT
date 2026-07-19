@@ -2,7 +2,53 @@
 
 from __future__ import annotations
 
+import os
 import sys
+
+
+def _add_system_dist_packages() -> None:
+    """When frozen (PyInstaller), let the app import the host's system
+    Python packages — specifically `dbus` and `gi` (PyGObject), which can't
+    be bundled reliably because they dlopen the host's libdbus/libgobject
+    and need matching .typelib files.
+
+    PyInstaller builds with a private sys.path that doesn't include the
+    distro's dist-packages, so without this shim `import dbus` fails inside
+    the frozen bundle even when python3-dbus is installed on the host. We
+    add the common distro-specific paths (whichever exist) to sys.path
+    before anything tries to import them.
+
+    No-op when not frozen (the normal venv case uses --system-site-packages,
+    which already exposes these).
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    # Candidate paths across the distros we target (Ubuntu/Debian, Fedora,
+    # RHEL, Arch, openSUSE). Use the host Python's minor version where it
+    # matters; fall back to a few common ones.
+    py = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    candidates = [
+        # Debian/Ubuntu: python3-dbus, python3-gi live here (version-independent)
+        "/usr/lib/python3/dist-packages",
+        # Fedora / RHEL / Arch / openSUSE: versioned site-packages
+        f"/usr/lib/{py}/site-packages",
+        "/usr/lib/python3/site-packages",
+        # Fedora / RHEL on aarch64 sometimes uses lib64
+        f"/usr/lib64/{py}/site-packages",
+        "/usr/lib64/python3/site-packages",
+        # Homebrew-style / local installs
+        f"/usr/local/lib/{py}/site-packages",
+        "/usr/local/lib/python3/dist-packages",
+    ]
+    # Dedupe while preserving order, and only add paths that actually exist
+    # (and aren't already on sys.path).
+    seen = set(sys.path)
+    for p in candidates:
+        if p in seen:
+            continue
+        if os.path.isdir(p):
+            sys.path.insert(0, p)
+            seen.add(p)
 
 
 def _ensure_qt_lib_path() -> None:
@@ -103,6 +149,7 @@ def main() -> None:
         print(f"UVProTermBT {__version__}")
         return
 
+    _add_system_dist_packages()  # frozen-only: let dbus/gi import from host
     _ensure_qt_lib_path()  # must run before any Qt import
     _locate_webengine_runtime()  # point WebEngine at its process/resources
     _enable_webengine_gl_sharing()  # must run before any QApplication is created

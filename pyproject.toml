@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uvprotermbt"
+description = "AX.25 packet messenger + terminal for the BTech UV-Pro / VGC VR-N76 over classic Bluetooth (KISS TNC)."
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+authors = [{ name = "Greg (KC3SMW)" }]
+requires-python = ">=3.12"
+keywords = ["ham-radio", "aprs", "ax25", "bluetooth", "kiss-tnc", "sstv", "winlink", "uv-pro", "vr-n76"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Ham Radio",
+]
+dynamic = ["version"]
+
+# Exact pins (mirror requirements.txt) — PyQt6 and PyQt6-WebEngine MUST share
+# the same Qt major.minor, so floating them independently is a known source of
+# ABI crashes. See requirements.txt for the rationale on each pin.
+dependencies = [
+    "PyQt6==6.8.1",
+    "PyQt6-WebEngine==6.8.1",
+    "pysstv==0.5.8",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2"]
+# SSTV receive (decode) — colaclanth/sstv is GitHub-only (not on PyPI), so it
+# can't be listed here. Install separately:
+#   pip install git+https://github.com/colaclanth/sstv.git
+# (pulls numpy/scipy/soundfile; needs system libsndfile1).
+
+[project.scripts]
+uvprotermbt = "uvprotermbt.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/chengmania/UVProTermBT"
+Repository = "https://github.com/chengmania/UVProTermBT"
+Issues = "https://github.com/chengmania/UVProTermBT/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "uvprotermbt.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["uvprotermbt*"]
+
+[tool.setuptools.package-data]
+"uvprotermbt.gui.resources" = ["*.png"]
+
+# ---- test config -----------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# ---- lint config (ruff) ----------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+# Reasonable defaults: style + common bugs, without being preachy.
+select = ["E", "F", "W", "I", "UP", "B"]
+# The codebase uses D-Bus method names like NewConnection (N803) and short
+# names like `fd` (N806); don't fight it.
+ignore = ["N802", "N803", "N806", "E501"]

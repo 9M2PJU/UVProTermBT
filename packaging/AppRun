@@ -1,0 +1,76 @@
+#!/bin/sh
+# AppImage entry point for UVProTermBT.
+#
+# The AppImage bundles the PyInstaller onedir tree (PyQt6 + WebEngine, pysstv,
+# colaclanth/sstv, PIL, app code, icon) but NOT the system-tied packages
+# (dbus, gi, libsbc) — those are tied to the host's BlueZ/libdbus/libgobject
+# ABI and bundling them breaks across distros. We check for them here and
+# print a clear install hint if missing, then exec the frozen binary.
+#
+# The frozen app's own startup shim (__main__._add_system_dist_packages) adds
+# the host's dist-packages to sys.path so `import dbus`/`import gi` succeed
+# inside the bundle. This script just makes sure they're actually installed.
+
+set -e
+
+# APPDIR is set by AppImage at mount time; fall back to the script's own dir
+# for testing unpacked AppDirs.
+APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
+APP="$APPDIR/usr/bin/uvprotermbt"
+
+# WebEngine's chrome-sandbox in the pip wheel is usually not setuid-root and
+# crashes the renderer. The embedded page is PAT's local UI on localhost —
+# trusted — so disabling the sandbox is the safe default.
+export QTWEBENGINE_DISABLE_SANDBOX=1
+
+# Friendly missing-dependency check. We look for the actual .so / Python
+# modules rather than the distro package names so this works on any distro.
+missing_hint() {
+    cat >&2 <<EOF
+
+!! UVProTermBT needs a system package that isn't installed: $1
+
+   Install it with your distro's package manager:
+
+     Debian/Ubuntu:  sudo apt install $2
+     Fedora/RHEL:    sudo dnf install $3
+     Arch:           sudo pacman -S $4
+     openSUSE:       sudo zypper install $5
+
+   Then re-run this AppImage.
+EOF
+}
+
+# libsbc — the SBC audio codec, loaded via ctypes.util.find_library("sbc").
+# Required for SSTV transmit AND receive (audio path).
+if ! ldconfig -p 2>/dev/null | grep -q 'libsbc\.so'; then
+    missing_hint "libsbc (SBC audio codec)" \
+        "libsbc1" "libsbc1" "sbc" "libsbc1"
+    echo "  (Chat / APRS / BBS still work without it; only SSTV is affected.)" >&2
+fi
+
+# python3-dbus + python3-gi — the BlueZ D-Bus transport. Without these the
+# app can't talk to the radio at all.
+have_dbus=0
+have_gi=0
+for p in \
+    /usr/lib/python3/dist-packages \
+    /usr/lib/python3.12/site-packages /usr/lib/python3.13/site-packages \
+    /usr/lib/python3.14/site-packages \
+    /usr/lib64/python3.12/site-packages /usr/lib64/python3.13/site-packages \
+    /usr/lib64/python3.14/site-packages
+do
+    [ -d "$p/dbus" ] && have_dbus=1
+    [ -d "$p/gi" ] && have_gi=1
+done
+if [ "$have_dbus" -eq 0 ]; then
+    missing_hint "python3-dbus (BlueZ D-Bus bindings)" \
+        "python3-dbus" "python3-dbus" "python-dbus" "python3-dbus"
+fi
+if [ "$have_gi" -eq 0 ]; then
+    missing_hint "python3-gi (PyGObject, BlueZ D-Bus bindings)" \
+        "python3-gi" "python3-gi" "python-gobject" "python3-gi"
+fi
+
+# Exec the frozen binary. The app's own shim handles sys.path for dbus/gi.
+exec "$APP" "$@"

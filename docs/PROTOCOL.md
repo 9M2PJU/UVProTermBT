@@ -4,6 +4,8 @@ Living document. Update with evidence when hardware findings change anything.
 Carries over confirmed findings from the AXTermPuter project's Phase 2
 investigation (2026-07-13) — see that repo's `docs/PROTOCOL.md` and
 `LOG.txt` for the full narrative of how these were discovered.
+(Moved to `docs/dev/LOG.txt` in v0.9.6 — the dev journal lives with the docs
+now, not in the repo root.)
 
 ## 1. KISS Framing
 

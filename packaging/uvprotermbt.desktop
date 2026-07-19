@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=UVProTermBT
+GenericName=AX.25 Packet Messenger + Terminal
+Comment=Chat, APRS, BBS, Winlink, and SSTV over the BTech UV-Pro / VGC VR-N76 Bluetooth KISS TNC
+Comment[en]=Chat, APRS, BBS, Winlink, and SSTV over the BTech UV-Pro / VGC VR-N76 Bluetooth KISS TNC
+Exec=uvprotermbt
+Icon=uvprotermbt
+Terminal=false
+Categories=Network;HamRadio;Qt;
+Keywords=ham;radio;aprs;ax25;packet;bluetooth;kiss;tnc;sstv;winlink;uv-pro;vr-n76;
+StartupNotify=true
+StartupWMClass=uvprotermbt

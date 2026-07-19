@@ -1,6 +1,19 @@
-# Pure-pip dependencies:
-PyQt6
-pytest
+# Pure-pip dependencies. Versions are EXACT-pinned for reproducible builds:
+# PyQt6 and PyQt6-WebEngine MUST share the same Qt major.minor — floating them
+# independently is a known source of ABI crashes (the apt python3-pyqt6
+# qtwebengine note in the old header was exactly this class of bug). Bump these
+# together, deliberately, after testing.
+#
+# Pins chosen 2026-07-19: each has been published for well over 7 days.
+#   PyQt6 6.8.1 / PyQt6-WebEngine 6.8.1 — long-stable Qt 6.8 line; the app is
+#     confirmed working on it. 6.9+ also works but 6.8.1 is the safe baseline
+#     for the PyInstaller bundle (oldest wheel set with arm64 + WebEngine).
+#   pysstv 0.5.8 — the only maintained release; pysstv is effectively dormant
+#     so this pin won't drift.
+PyQt6==6.8.1
+PyQt6-WebEngine==6.8.1
+pysstv==0.5.8
+pytest==8.4.2
 
 # Embedded PAT/Winlink web UI (the Winlink tab hosts PAT's localhost web UI in a
 # QWebEngineView). Installed via pip so it version-matches the pip PyQt6 above —
@@ -8,19 +21,20 @@ pytest
 # It's a large wheel (~100 MB, bundles Chromium); if it can't be installed the
 # app degrades gracefully — the Winlink tab falls back to opening PAT in the
 # system browser (see uvprotermbt/gui/pat_panel.py).
-PyQt6-WebEngine
 
-# SSTV image transmit (encode). Receive/decode additionally needs the
-# colaclanth SSTV decoder, which is GitHub-only (not on PyPI), so it isn't listed
-# here — install it separately if you want SSTV RX:
+# SSTV image transmit (encode) is covered by pysstv above. Receive/decode
+# additionally needs the colaclanth SSTV decoder, which is GitHub-only (not on
+# PyPI), so it isn't listed here — install it separately if you want SSTV RX:
 #   pip install git+https://github.com/colaclanth/sstv.git
 # The SBC audio codec uses the system libsbc1 (via ctypes). See
 # docs/GAIA_AUDIO_SSTV.md.
-pysstv
 
 # NOTE: the Bluetooth transport (uvprotermbt/link.py) also needs the BlueZ
 # D-Bus bindings, which are SYSTEM packages, not pip installs:
-#     sudo apt install python3-dbus python3-gi
+#     sudo apt install python3-dbus python3-gi        # Debian/Ubuntu
+#     sudo dnf install python3-dbus python3-gi        # Fedora
+#     sudo pacman -S python-dbus python-gobject       # Arch
+#     sudo zypper install python3-dbus python3-gi     # openSUSE
 # Create the venv so it can see them:
 #     python3 -m venv --system-site-packages .venv
 # See docs/PROTOCOL.md §3 for the full connection method and why.

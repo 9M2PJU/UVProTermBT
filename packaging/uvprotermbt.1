@@ -1,0 +1,82 @@
+.TH UVPROTERMBT 1 "2026-07-19" "UVProTermBT 0.9.5" "User Commands"
+.SH NAME
+uvprotermbt \- AX.25 packet messenger + terminal for the BTech UV-Pro / VGC VR-N76
+.SH SYNOPSIS
+.B uvprotermbt
+.RI [ --version ]
+.br
+.B uvprotermbt
+.RI [ --help ]
+.SH DESCRIPTION
+UVProTermBT is a desktop AX.25 packet messenger and terminal for the
+BTech UV-Pro / VGC VR-N76 ("Benshi" radio family). It talks to the radio's
+built-in KISS TNC over classic Bluetooth (no cable, no external TNC) via
+BlueZ's SerialPort profile.
+.PP
+It provides five modes in one PyQt6 window:
+.TP
+.B Chat
+SMS-style APRS messaging (send/receive, auto-ack).
+.TP
+.B APRS
+Live monitor of decoded AX.25 traffic and a heard-stations list.
+.TP
+.B BBS
+A full AX.25 connected-mode terminal (connect to BPQ/nodes).
+.TP
+.B Winlink
+Brings up the kernel AX.25 port and embeds PAT's web UI in-window.
+.TP
+.B SSTV
+Send and receive images over the radio's Bluetooth audio channel (Robot36
+and more).
+.SH OPTIONS
+.TP
+.BR \-V ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-\-help
+Show a brief help message.
+.SH FIRST RUN
+On first launch a setup wizard asks for your callsign and lets you pick your
+paired radio. On the radio itself, enable KISS TNC first:
+Settings \(-> General Settings \(-> KISS TNC \(-> Enable KISS TNC, then pair
+the radio to this computer.
+.SH FILES
+.TP
+.I ~/.config/uvprotermbt/config.json
+Per-user settings (callsign, SSID, Bluetooth MAC, APRS path, theme).
+.TP
+.I ~/.local/share/uvprotermbt/sstv/
+Saved received SSTV images.
+.SH ENVIRONMENT
+.TP
+.B QTWEBENGINE_DISABLE_SANDBOX
+Set to 1 by the app's startup shim (the pip-wheel WebEngine chrome-sandbox
+is usually not setuid-root and crashes the renderer). The embedded page is
+PAT's local UI on localhost, so this is an acceptable trade-off.
+.TP
+.B LD_LIBRARY_PATH
+Augmented by the startup shim to include PyQt6's Qt6/lib so
+PyQt6-WebEngine's sibling Qt libs load.
+.SH EXAMPLES
+.TP
+.B uvprotermbt
+Launch the GUI. First run walks you through setup.
+.SH SEE ALSO
+.BR pat (1),
+.BR kissattach (8),
+.BR bluetoothctl (1)
+.PP
+Full protocol and pairing details in
+.I /usr/share/doc/uvprotermbt/PROTOCOL.md
+and at
+.UR https://github.com/chengmania/UVProTermBT
+.UE .
+.SH AUTHOR
+Greg (KC3SMW) \(em https://github.com/chengmania
+.PP
+Linux packaging (.deb / .rpm / .AppImage) by 9M2PJU.
+.SH LICENSE
+Copyright (C) 2026 Greg (KC3SMW). Free software under the GNU General
+Public License v3.0.

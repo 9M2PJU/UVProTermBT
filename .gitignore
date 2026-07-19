@@ -1,4 +1,5 @@
 .venv/
+.venv-build/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -7,6 +8,7 @@ build/
 dist/
 session.txt
 CLAUDE.md
+AGENTS.md
 
 # SSTV / audio capture scratch outputs
 uvpro-audio.*
@@ -14,3 +16,9 @@ uvpro-audio.*
 sstv_*.png
 sstv_*.wav
 some_picture.png
+
+# Packaging build artifacts
+packaging/build/
+*.AppImage
+appimagetool*
+

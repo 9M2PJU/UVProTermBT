@@ -1,0 +1,26 @@
+#!/bin/sh
+# .deb postinst — refresh desktop and icon caches after the files land.
+set -e
+
+# Update the desktop database so the app menu picks up the .desktop entry.
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+
+# Refresh the GTK icon cache so the hicolor icons resolve.
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+fi
+
+# Update the manpage database.
+if command -v mandb >/dev/null 2>&1; then
+    mandb -q >/dev/null 2>&1 || true
+fi
+
+echo "UVProTermBT installed. Launch it from your app menu, or run: uvprotermbt"
+echo "First launch walks you through callsign + radio setup. On the radio,"
+echo "enable KISS TNC (Settings -> General Settings -> KISS TNC) and pair it."
+
+#DEBHELPER#
+
+exit 0

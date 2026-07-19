@@ -1,0 +1,60 @@
+name: CI
+
+# Run the test suite on every push and PR, on both amd64 and arm64. The pure
+# Python codec tests (KISS, AX.25, APRS, audio framing, SBC, SSTV, GAIA) need
+# no hardware; the few tests that touch dbus/gi are skipped when those modules
+# aren't importable, so this is safe to run on a clean runner.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Native runners — no QEMU. ubuntu-24.04-arm is GA for public repos.
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system deps (BlueZ D-Bus bindings, libsbc, libsndfile)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              python3-dbus python3-gi \
+              libsbc1 libsndfile1
+
+      - name: Create venv + install deps
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          # SSTV decoder — best-effort (some test_sstv tests skip without it).
+          .venv/bin/pip install "git+https://github.com/colaclanth/sstv.git" || true
+
+      - name: Run pytest
+        run: .venv/bin/python -m pytest -q
+
+      - name: Verify the package metadata builds
+        run: |
+          .venv/bin/pip install build
+          .venv/bin/python -m build --sdist --no-isolation --outdir dist/
