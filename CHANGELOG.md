@@ -8,6 +8,8 @@ move more freely than SemVer would strictly require during the 0.x line).
 
 ## [Unreleased]
 
+## [0.9.6] — 2026-07-19
+
 ### Added
 - **Packaging**: `.deb`, `.rpm`, `.AppImage` builds for **amd64 and arm64**,
   produced by `packaging/build.sh` and the `release.yml` GitHub Actions
@@ -34,12 +36,18 @@ move more freely than SemVer would strictly require during the 0.x line).
   apt-only.
 - `CHANGELOG.md` (this file).
 - `ruff` config in `pyproject.toml` for consistent style across modules.
+- README: prebuilt-package install section, local build instructions, and a
+  Releases section pointing at the GitHub Releases page.
+- About dialog: 9M2PJU credit line in the same `CALLSIGN • description.`
+  format as the KC3SMW line.
 
 ### Changed
 - `requirements.txt` is now **exact-pinned** (`PyQt6==6.8.1`,
-  `PyQt6-WebEngine==6.8.1`, `pysstv==0.5.8`, `pytest==8.4.2`). PyQt6 and
+  `PyQt6-WebEngine==6.8.0`, `pysstv==0.5.8`, `pytest==8.4.2`). PyQt6 and
   PyQt6-WebEngine MUST share the same Qt major.minor — floating them
   independently is a known source of ABI crashes. Bump together, deliberately.
+  (PyQt6-WebEngine has no 6.8.1 release on PyPI; 6.8.0 is the matching
+  Qt 6.8.x WebEngine.)
 - `install.sh` and `scripts/preflight.sh` are now distro-portable via
   `scripts/distro.sh`. The preflight header now shows the detected
   distro/package-manager and prints the correct install command per missing
@@ -50,6 +58,8 @@ move more freely than SemVer would strictly require during the 0.x line).
 ### Fixed
 - `preflight.sh` no longer tells Fedora/Arch/openSUSE users to "run apt
   install" — it prints the distro-correct command for each missing dep.
+- CI: `python -m build --sdist --no-isolation` needs `setuptools`+`wheel` in
+  the venv; the CI step now installs them alongside `build`.
 
 ## [0.9.5] — 2026-07-19
 

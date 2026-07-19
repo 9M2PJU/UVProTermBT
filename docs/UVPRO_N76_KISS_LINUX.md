@@ -261,6 +261,6 @@ This method stands on the shoulders of several people and projects:
 ---
 
 *Written up by Greg (KC3SMW) as part of the
-[UVProTermBT](https://github.com/chengmania/UVProTermBT) project — an AX.25
+[UVProTermBT](https://github.com/9M2PJU/UVProTermBT) project — an AX.25
 packet messenger + terminal for the UV‑Pro on Linux. Corrections and
 improvements welcome.*

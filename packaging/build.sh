@@ -126,7 +126,7 @@ build_deb() {
         --architecture "$DEB_ARCH" \
         --maintainer "Greg (KC3SMW) <noreply@chengmania.com>" \
         --description "AX.25 packet messenger + terminal for the BTech UV-Pro / VGC VR-N76 over Bluetooth KISS TNC" \
-        --url "https://github.com/chengmania/UVProTermBT" \
+        --url "https://github.com/9M2PJU/UVProTermBT" \
         --license "GPL-3.0-only" \
         --category net \
         --depends "python3-dbus" \
@@ -169,7 +169,7 @@ build_rpm() {
         --architecture "$RPM_ARCH" \
         --maintainer "Greg (KC3SMW) <noreply@chengmania.com>" \
         --description "AX.25 packet messenger + terminal for the BTech UV-Pro / VGC VR-N76 over Bluetooth KISS TNC" \
-        --url "https://github.com/chengmania/UVProTermBT" \
+        --url "https://github.com/9M2PJU/UVProTermBT" \
         --license "GPL-3.0-only" \
         --category "Applications/Internet" \
         --depends "python3-dbus" \

@@ -4,6 +4,11 @@ A desktop **AX.25 packet messenger + terminal** for the **BTech UV-Pro** /
 **VGC VR-N76** (the "Benshi" radio family), talking to the radio's built-in
 **KISS TNC over classic Bluetooth** — no cable, no external TNC.
 
+> **Install it now:** prebuilt `.deb` / `.rpm` / `.AppImage` builds for amd64
+> and arm64 are on the
+> [Releases page](https://github.com/9M2PJU/UVProTermBT/releases).
+> See [Install & run](#install--run) below. *(Packaging added in v0.9.6.)*
+
 Five modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 
 - **Chat** — SMS-style APRS messaging (send/receive, auto-ack).
@@ -56,7 +61,7 @@ A Chat-tab APRS message transmitted by UVProTermBT, decoded by an independent
 ### Option A — prebuilt package (recommended)
 
 Grab the latest release for your arch from the
-[Releases page](https://github.com/chengmania/UVProTermBT/releases):
+[Releases page](https://github.com/9M2PJU/UVProTermBT/releases):
 
 | Distro | amd64 (x86_64) | arm64 (aarch64) |
 |---|---|---|
@@ -87,7 +92,7 @@ After install, launch **"UVProTermBT"** from your app menu, or run
 ### Option B — from source (one command)
 
 ```bash
-git clone https://github.com/chengmania/UVProTermBT
+git clone https://github.com/9M2PJU/UVProTermBT
 cd UVProTermBT
 ./run.sh
 ```

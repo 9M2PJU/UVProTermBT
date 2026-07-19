@@ -43,9 +43,9 @@ test = ["pytest==8.4.2"]
 uvprotermbt = "uvprotermbt.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/chengmania/UVProTermBT"
-Repository = "https://github.com/chengmania/UVProTermBT"
-Issues = "https://github.com/chengmania/UVProTermBT/issues"
+Homepage = "https://github.com/9M2PJU/UVProTermBT"
+Repository = "https://github.com/9M2PJU/UVProTermBT"
+Issues = "https://github.com/9M2PJU/UVProTermBT/issues"
 
 [tool.setuptools.dynamic]
 version = { attr = "uvprotermbt.__version__" }
