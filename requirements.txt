@@ -5,13 +5,15 @@
 # together, deliberately, after testing.
 #
 # Pins chosen 2026-07-19: each has been published for well over 7 days.
-#   PyQt6 6.8.1 / PyQt6-WebEngine 6.8.1 — long-stable Qt 6.8 line; the app is
-#     confirmed working on it. 6.9+ also works but 6.8.1 is the safe baseline
+#   PyQt6 6.8.1 / PyQt6-WebEngine 6.8.0 — long-stable Qt 6.8 line; the app is
+#     confirmed working on it. 6.9+ also works but 6.8.x is the safe baseline
 #     for the PyInstaller bundle (oldest wheel set with arm64 + WebEngine).
+#     NOTE: PyQt6-WebEngine has no 6.8.1 release on PyPI (its 6.8 line stops at
+#     6.8.0, then jumps to 6.9.0); 6.8.0 is the matching Qt 6.8.x WebEngine.
 #   pysstv 0.5.8 — the only maintained release; pysstv is effectively dormant
 #     so this pin won't drift.
 PyQt6==6.8.1
-PyQt6-WebEngine==6.8.1
+PyQt6-WebEngine==6.8.0
 pysstv==0.5.8
 pytest==8.4.2
 
