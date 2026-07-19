@@ -73,15 +73,32 @@ def decode_wav(path: str):
             dec.close()
 
 
+def mode_size(mode: str) -> tuple[int, int]:
+    """The (width, height) an SSTV mode transmits."""
+    cls = ENCODE_MODES.get(mode)
+    if cls is None:
+        raise ValueError(f"unknown SSTV mode {mode!r}; have {sorted(ENCODE_MODES)}")
+    return int(cls.WIDTH), int(cls.HEIGHT)
+
+
+def fit_image(image, mode: str):
+    """Resize/center-crop an image to the SSTV mode's exact dimensions, preserving
+    aspect (fills the frame; crops overflow). pysstv only reads the top-left W×H
+    of whatever image it's given, so this must happen before encoding."""
+    from PIL import ImageOps
+    w, h = mode_size(mode)
+    return ImageOps.fit(image.convert("RGB"), (w, h))
+
+
 def encode_wav(image, path: str, mode: str = "Robot36",
                sample_rate: int = 44100, bits: int = 16) -> None:
-    """Encode a PIL.Image to an SSTV WAV using the named mode."""
+    """Encode a PIL.Image to an SSTV WAV using the named mode (auto-fit to size)."""
     if not ENCODE_AVAILABLE:
         raise RuntimeError("pysstv not installed (pip install pysstv)")
     cls = ENCODE_MODES.get(mode)
     if cls is None:
         raise ValueError(f"unknown SSTV mode {mode!r}; have {sorted(ENCODE_MODES)}")
-    cls(image.convert("RGB"), sample_rate, bits).write_wav(path)
+    cls(fit_image(image, mode), sample_rate, bits).write_wav(path)
 
 
 def _main() -> None:

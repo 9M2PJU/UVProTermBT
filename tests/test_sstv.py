@@ -27,6 +27,15 @@ def test_encode_modes_present():
     assert "Robot36" in sstv.ENCODE_MODES
 
 
+def test_fit_image_resizes_to_mode_size():
+    from PIL import Image
+    assert sstv.mode_size("Robot36") == (320, 240)
+    # A big off-aspect image must come out exactly the mode's size (pysstv only
+    # reads the top-left W×H, so this resize is required for correct pictures).
+    fitted = sstv.fit_image(Image.new("RGB", (1024, 1024), "teal"), "Robot36")
+    assert fitted.size == (320, 240)
+
+
 def test_roundtrip_robot36(tmp_path):
     from PIL import Image, ImageDraw
     src = Image.new("RGB", (320, 240), "darkblue")

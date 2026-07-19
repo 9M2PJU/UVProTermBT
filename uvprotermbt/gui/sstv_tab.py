@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QFileDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
 )
@@ -57,7 +57,8 @@ class SstvTab(QWidget):
         self._enabled = False
         self._transmitting = False
         self._decoding = False
-        self._pending_tx = None       # (path, mode) chosen, waiting for the channel
+        self._loaded_path = None      # image loaded and ready to send
+        self._pending_tx = None       # (path, mode) sent, waiting for the channel
 
         self._deframer = AudioFrameDecoder()
         self._sbc = SbcDecoder()
@@ -90,8 +91,12 @@ class SstvTab(QWidget):
         if "Robot36" in modes:
             self._mode.setCurrentText("Robot36")
         tx.addWidget(self._mode)
-        self._send_btn = QPushButton("Send Image…")
-        self._send_btn.clicked.connect(self._send_image)
+        self._load_btn = QPushButton("Load Image…")
+        self._load_btn.clicked.connect(self._load_image)
+        tx.addWidget(self._load_btn)
+        self._send_btn = QPushButton("Send")
+        self._send_btn.clicked.connect(self._send)
+        self._send_btn.setEnabled(False)
         tx.addWidget(self._send_btn)
         tx.addStretch(1)
         v.addLayout(tx)
@@ -106,9 +111,11 @@ class SstvTab(QWidget):
         v.addWidget(self._info)
 
     def _refresh_controls(self) -> None:
-        # Choosing/sending an image is always available (it auto-enables SSTV);
-        # only gate on the encoder being installed and not already transmitting.
-        self._send_btn.setEnabled(sstv.ENCODE_AVAILABLE and not self._transmitting)
+        # Loading is always available; Send lights up only once an image is loaded.
+        # Sending is a deliberate second step (never auto-transmit on load).
+        self._load_btn.setEnabled(sstv.ENCODE_AVAILABLE and not self._transmitting)
+        self._send_btn.setEnabled(
+            self._loaded_path is not None and not self._transmitting)
         self._mode.setEnabled(not self._transmitting)
         self._enable_btn.setText("Disable SSTV" if self._enabled else "Enable SSTV")
 
@@ -215,27 +222,49 @@ class SstvTab(QWidget):
 
     # ---- TX --------------------------------------------------------------
 
-    def _send_image(self) -> None:
+    def _load_image(self) -> None:
+        """Pick an image and preview it (as it will be sent). Does NOT transmit."""
         if not sstv.ENCODE_AVAILABLE:
             self._log("SSTV transmit needs pysstv (pip install pysstv).")
             return
         path, _ = QFileDialog.getOpenFileName(
-            self, "Choose an image to transmit", os.path.expanduser("~"),
+            self, "Load an image to transmit", os.path.expanduser("~"),
             "Images (*.png *.jpg *.jpeg *.bmp *.gif)")
         if not path:
             return
+        self._loaded_path = path
+        self._show_preview(path)
         mode = self._mode.currentText()
-        # Preview the chosen image.
-        pm = QPixmap(path)
-        if not pm.isNull():
+        w, h = sstv.mode_size(mode)
+        self._info.setText(
+            f"loaded {os.path.basename(path)} — will send as {mode} ({w}×{h}). "
+            "Click Send to transmit.")
+        self._refresh_controls()
+
+    def _show_preview(self, path: str) -> None:
+        # Show the image resized to the SSTV frame, so it's what actually goes out.
+        pm = None
+        try:
+            from PIL import Image
+            fitted = sstv.fit_image(Image.open(path), self._mode.currentText())
+            qi = QImage(fitted.tobytes(), fitted.width, fitted.height,
+                        fitted.width * 3, QImage.Format.Format_RGB888)
+            pm = QPixmap.fromImage(qi)
+        except Exception:
+            pm = QPixmap(path)
+        if pm is not None and not pm.isNull():
             self._image.setPixmap(pm.scaled(
                 self._image.width(), self._image.height(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation))
-        self._info.setText(f"queued for {mode}: {os.path.basename(path)}")
-        self._pending_tx = (path, mode)
-        # Auto-enable SSTV (opens the audio channel) if needed; the transmit fires
-        # from poll() once the channel is up.
+
+    def _send(self) -> None:
+        """Transmit the loaded image (deliberate action). Auto-enables SSTV; the
+        transmit fires from poll() once the audio channel is up."""
+        if not self._loaded_path:
+            return
+        mode = self._mode.currentText()
+        self._pending_tx = (self._loaded_path, mode)
         if not self._enabled:
             self._log("enabling SSTV to transmit…")
             self._enable()
