@@ -241,8 +241,10 @@ build_appimage() {
         chmod 755 "$AIT"
         # appimagetool is itself an AppImage — extract once so it runs in
         # containers without FUSE (CI builds run --appimage-extract-and-run).
+        # --appimage-extract extracts to ./squashfs-root/ in the CWD, so cd
+        # to $BUILD first so the extracted tree lands where we expect it.
         if [ -n "${APPIMAGE_EXTRACT_AND_RUN:-}" ] || ! "$AIT" --version >/dev/null 2>&1; then
-            "$AIT" --appimage-extract >/dev/null 2>&1 || true
+            (cd "$BUILD" && "$AIT" --appimage-extract >/dev/null 2>&1) || true
             AIT="$BUILD/squashfs-root/AppRun"
         fi
     fi
