@@ -23,6 +23,21 @@ Five modes in one PyQt6 window (styled after OpenWave), light/dark themes:
 > [`docs/UVPRO_N76_KISS_LINUX.md`](docs/UVPRO_N76_KISS_LINUX.md) and
 > [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the full story.
 
+## Screenshots
+
+| Chat (APRS messaging) | BBS terminal |
+|---|---|
+| ![Chat tab](docs/screenshots/chat.png) | ![BBS tab](docs/screenshots/bbs.png) |
+
+| Winlink (PAT embedded in-window) | SSTV (received image, auto-decoded) |
+|---|---|
+| ![Winlink tab](docs/screenshots/winlink.png) | ![SSTV tab](docs/screenshots/sstv.png) |
+
+A Chat-tab APRS message transmitted by UVProTermBT, decoded by an independent
+`direwolf` monitor — end-to-end on-air proof:
+
+![APRS message decoded by direwolf](docs/screenshots/aprs-direwolf.png)
+
 ## Requirements
 
 - Linux with BlueZ (developed on Kubuntu), Python 3.12+
