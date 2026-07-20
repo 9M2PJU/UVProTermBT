@@ -24,4 +24,16 @@ if [ ! -x ".venv/bin/python" ]; then
     echo
 fi
 
+# After an update (`git pull`), refresh Python deps if requirements.txt changed,
+# so a plain `git pull && ./run.sh` picks up anything a new release added.
+if [ -x ".venv/bin/python" ] && [ requirements.txt -nt ".venv/.reqs-stamp" ]; then
+    echo "Dependencies changed — updating…"
+    if .venv/bin/pip install -q -r requirements.txt; then
+        touch ".venv/.reqs-stamp"
+    else
+        echo "  (dependency update failed — launching with existing deps)"
+    fi
+    echo
+fi
+
 exec .venv/bin/python -m uvprotermbt "$@"
