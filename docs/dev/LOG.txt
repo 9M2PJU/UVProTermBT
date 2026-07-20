@@ -1,6 +1,16 @@
 UVProTermBT — Session Log
 =========================
 
+2026-07-20 — v0.9.7: re-release with upstream BBS monitor + run.sh auto-refresh
+- Merged upstream chengmania/UVProTermBT (3 commits):
+  - BBS tab raw AX.25 traffic monitor strip (every frame heard, source>dest via
+    path, type, info snippet; capped at 1000 lines; themed).
+  - tests/test_bbs_monitor.py (2 tests; suite 81/81).
+  - run.sh auto-refreshes deps after `git pull` (reqs-stamp check).
+- Version bump 0.9.6 → 0.9.7; re-cut .deb/.rpm/.AppImage (amd64 + arm64) so the
+  prebuilt artifacts ship the BBS traffic monitor.
+- __version__ 0.9.7. Suite 81/81.
+
 2026-07-19 — v0.9.6: SSTV UX polish + BBS traffic monitor
 - SSTV tab: split into Receive / Transmit sub-tabs (shared Enable+status on top);
   Load Image (preview, no RF) is now separate from Send (deliberate transmit,

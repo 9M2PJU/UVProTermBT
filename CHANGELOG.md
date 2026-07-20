@@ -8,6 +8,26 @@ move more freely than SemVer would strictly require during the 0.x line).
 
 ## [Unreleased]
 
+## [0.9.7] — 2026-07-20
+
+### Added
+- **BBS traffic monitor**: a live, TNC-style raw AX.25 traffic strip below the
+  BBS conversation. Every frame the radio hears (source>dest via path, frame
+  type — UI/SABM/UA/I/RR…, and an info snippet) is appended, independent of
+  your active session, capped at 1000 lines. Themed to match the rest of the
+  UI. Merged from upstream `chengmania/UVProTermBT`.
+- `tests/test_bbs_monitor.py` — 2 tests covering UI frames with path and
+  connected-frame type labelling. Suite now 81/81 (was 79).
+- `run.sh` auto-refreshes Python deps after `git pull` (reinstalls
+  `requirements.txt` when newer than `.venv/.reqs-stamp`, written by
+  `install.sh`). A plain `git pull && ./run.sh` now picks up new dependencies
+  without a manual `./install.sh`.
+
+### Changed
+- Version bump 0.9.6 → 0.9.7. Re-released the native packages (`.deb`, `.rpm`,
+  `.AppImage` for amd64 + arm64) so the prebuilt artifacts include the BBS
+  traffic monitor.
+
 ## [0.9.6] — 2026-07-19
 
 ### Added
